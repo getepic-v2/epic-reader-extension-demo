@@ -575,7 +575,7 @@ var offsetLeft = rect.x - parentRect.x;
 我们会为每个团队在 CDN 上分配独立目录，按版本管理：
 
 ```
-https://cdn-gcp-media-drm.getepic.com/extensions/
+https://cdn.example.com/extensions/
 ├── {公司名}/
 │   └── v{版本号}/
 │       ├── main.js           ← 入口脚本
@@ -587,8 +587,8 @@ https://cdn-gcp-media-drm.getepic.com/extensions/
 
 示例：
 ```
-https://cdn-gcp-media-drm.getepic.com/extensions/acme/v1.0.0/main.js
-https://cdn-gcp-media-drm.getepic.com/extensions/acme/v1.0.0/assets/star.png
+https://cdn.example.com/extensions/acme/v1.0.0/main.js
+https://cdn.example.com/extensions/acme/v1.0.0/assets/star.png
 ```
 
 **第三方开发时使用相对路径即可**（如 `./images/star.png`），我们在编译时会自动将相对路径替换为对应的 CDN 绝对路径，第三方无需关心。

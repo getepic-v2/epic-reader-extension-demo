@@ -38,16 +38,16 @@ export interface Star {
   content: StarContent
 }
 
-export interface EpicLabsBookPage {
+export interface EpicReaderBookPage {
   pageNumber: number
   starCount: number
   stars: Star[]
 }
 
-export interface EpicLabsBookData {
+export interface EpicReaderBookData {
   startVideo?: { url: string }
   endVideo?: { url: string }
-  pages: EpicLabsBookPage[]
+  pages: EpicReaderBookPage[]
 }
 
 // --- Book Data (common fields) ---

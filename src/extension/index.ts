@@ -3,12 +3,12 @@ import StarOverlay from './components/StarOverlay.vue'
 import DrawerPanel from './components/DrawerPanel.vue'
 import GameContent from './components/GameContent.vue'
 import { injectStyles } from './utils/styles'
-import type { ExtensionContext, Star, EpicLabsBookData } from './types'
+import type { ExtensionContext, Star, EpicReaderBookData } from './types'
 import { parseLabsXml } from './utils/parse-labs-xml'
 
-let parsedLabsData: EpicLabsBookData | null = null
+let parsedLabsData: EpicReaderBookData | null = null
 
-function getLabsData(context: ExtensionContext): EpicLabsBookData | null {
+function getLabsData(context: ExtensionContext): EpicReaderBookData | null {
   if (parsedLabsData) return parsedLabsData
   const raw = context.data.getLabsData()
   if (!raw || typeof raw !== 'string') return null

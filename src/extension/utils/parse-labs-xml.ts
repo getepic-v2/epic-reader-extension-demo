@@ -1,13 +1,13 @@
 import type {
-  EpicLabsBookData,
-  EpicLabsBookPage,
+  EpicReaderBookData,
+  EpicReaderBookPage,
   Star,
   StarType,
   StarContent,
   MultipleChoiceOption,
 } from '../types'
 
-export function parseLabsXml(xmlString: string): EpicLabsBookData {
+export function parseLabsXml(xmlString: string): EpicReaderBookData {
   const parser = new DOMParser()
   const xmlDoc = parser.parseFromString(xmlString, 'text/xml')
 
@@ -38,8 +38,8 @@ function parseVideoUrl(parent: Element, tagName: string): { url: string } {
   return { url: el?.getAttribute('url') || '' }
 }
 
-function parsePages(readingModule: Element): EpicLabsBookPage[] {
-  const pages: EpicLabsBookPage[] = []
+function parsePages(readingModule: Element): EpicReaderBookPage[] {
+  const pages: EpicReaderBookPage[] = []
   const pageElements = readingModule.querySelectorAll('pages > page')
 
   pageElements.forEach((pageElement) => {

@@ -574,7 +574,7 @@ All static assets (images, animations, fonts, etc.) are deployed as individual f
 We assign each team an independent directory on CDN, organized by version:
 
 ```
-https://cdn-gcp-media-drm.getepic.com/extensions/
+https://cdn.example.com/extensions/
 ├── {company}/
 │   └── v{version}/
 │       ├── main.js           ← Entry script
@@ -586,8 +586,8 @@ https://cdn-gcp-media-drm.getepic.com/extensions/
 
 Example:
 ```
-https://cdn-gcp-media-drm.getepic.com/extensions/acme/v1.0.0/main.js
-https://cdn-gcp-media-drm.getepic.com/extensions/acme/v1.0.0/assets/star.png
+https://cdn.example.com/extensions/acme/v1.0.0/main.js
+https://cdn.example.com/extensions/acme/v1.0.0/assets/star.png
 ```
 
 **Use relative paths during development** (e.g., `./images/star.png`). We automatically replace relative paths with the corresponding CDN absolute paths during build. No action needed from third-party developers.

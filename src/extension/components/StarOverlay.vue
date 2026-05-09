@@ -32,20 +32,18 @@ function updateFlipBookPosition() {
   const rect = props.context.data.getFlipBookRect()
   if (!rect) return
 
-  // The slot container is position:absolute;inset:0 inside read-container.
-  // We need to find the offset of flipbook relative to the slot's parent (read-container).
-  const slotParent = document.getElementById('read-container')
-  const parentRect = slotParent?.getBoundingClientRect()
+  // The slot host element is our positioned ancestor — use it as reference
+  const slotHost = (props.context.slots.get('reading-area') as ShadowRoot).host
+  if (!slotHost) return
+  const hostRect = slotHost.getBoundingClientRect()
 
-  if (parentRect) {
-    flipBookStyle.value = {
-      position: 'absolute',
-      top: `${rect.y - parentRect.y}px`,
-      left: `${rect.x - parentRect.x}px`,
-      width: `${rect.width}px`,
-      height: `${rect.height}px`,
-      pointerEvents: 'none',
-    }
+  flipBookStyle.value = {
+    position: 'absolute',
+    top: `${rect.y - hostRect.y}px`,
+    left: `${rect.x - hostRect.x}px`,
+    width: `${rect.width}px`,
+    height: `${rect.height}px`,
+    pointerEvents: 'none',
   }
 }
 
@@ -75,10 +73,9 @@ function onStarClick(star: Star, starIndex: number) {
 const isGameStar = (star: Star) => star.type === 'game'
 
 watch(
-  () => props.state.stars,
+  () => props.state.page,
   async () => {
     await nextTick()
-    updateFlipBookPosition()
     initLottieAnimations()
   },
 )

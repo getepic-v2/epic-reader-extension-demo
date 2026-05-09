@@ -351,11 +351,11 @@ import DrawerPanel from ‘./components/DrawerPanel.vue’
 import GameContent from ‘./components/GameContent.vue’
 import { injectStyles } from ‘./utils/styles’
 import { parseLabsXml } from ‘./utils/parse-labs-xml’
-import type { ExtensionContext, Star, EpicLabsBookData } from ‘./types’
+import type { ExtensionContext, Star, EpicReaderBookData } from ‘./types’
 
-let parsedData: EpicLabsBookData | null = null
+let parsedData: EpicReaderBookData | null = null
 
-function getLabsData(context: ExtensionContext): EpicLabsBookData | null {
+function getLabsData(context: ExtensionContext): EpicReaderBookData | null {
   if (parsedData) return parsedData
   const raw = context.data.getLabsData()
   if (!raw || typeof raw !== ‘string’) return null

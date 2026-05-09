@@ -1,13 +1,13 @@
-# Epic Labs Extension Demo
+# Epic Reader Extension Demo
 
-A Vue 3 example project demonstrating how to develop interactive extensions for the Epic Reader.
+A Vue 3 example project demonstrating how to develop interactive extensions for the Epic Reader using the Extension API.
 
 ## Features
 
 - Render interactive stars on book pages by coordinates (Lottie animations)
-- Click stars to open a side drawer with interactive content (quiz, flashcard, puzzle)
-- Click game stars to open a full-screen game modal (iframe)
-- Auto-update stars and close drawer on page turn
+- Click stars to open a host-provided side drawer with interactive content (quiz, flashcard, puzzle)
+- Click game stars to open a host-provided modal with game content
+- Auto-update stars and close drawer/modal on page turn
 - ShadowDOM style isolation
 
 ## Project Structure
@@ -25,7 +25,7 @@ src/extension/
     ├── MultipleChoice.vue   ← Quiz interaction
     ├── Flashcard.vue        ← Flashcard flip
     ├── Puzzle.vue           ← Puzzle game
-    └── GameModal.vue        ← Game modal
+    └── GameContent.vue      ← Game content (rendered inside host modal)
 ```
 
 ## Requirements
