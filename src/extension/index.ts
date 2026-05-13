@@ -419,7 +419,8 @@ const MODAL_CSS = `
 }
 `
 
-;(window as any).EpicLabsStarExtension = {
+declare const __EXTENSION_GLOBAL_NAME__: string
+;(window as any)[__EXTENSION_GLOBAL_NAME__] = {
   activate(context: ExtensionContext) {
     // --- State ---
     const state = reactive({

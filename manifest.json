@@ -3,5 +3,5 @@
   "name": "Epic Labs Star Extension (Vue 3)",
   "version": "1.0.0",
   "globalName": "EpicLabsStarExtension",
-  "entry": "main.js"
+  "entry": "EpicLabsStarExtension-main.js"
 }

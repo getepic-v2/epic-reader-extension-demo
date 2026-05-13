@@ -79,7 +79,7 @@ The host provides three rendering areas:
 
 ### 3.1 Minimal Example
 
-Create a `main.js`:
+Create a `{globalName}-main.js` (e.g., `AcmeQuizExtension-main.js`):
 
 ```javascript
 (function() {
@@ -124,7 +124,7 @@ npx serve . --cors -l 8080
 python3 -m http.server 8080
 ```
 
-Verify that `http://localhost:8080/main.js` is accessible.
+Verify that `http://localhost:8080/{globalName}-main.js` is accessible (e.g., `http://localhost:8080/AcmeQuizExtension-main.js`).
 
 **Step 2: Register the extension URL**
 
@@ -139,10 +139,11 @@ https://webqa-new.getepic.dev/app/read/{bookId}
 In the browser Developer Tools Console, execute:
 
 ```javascript
-localStorage.setItem('epic_debug_plugin', 'http://localhost:8080/main.js')
+localStorage.setItem('epic_debug_plugin', 'http://localhost:8080/AcmeQuizExtension-main.js')
 ```
 
 > This setting persists and only needs to be set once. To clear: `localStorage.removeItem('epic_debug_plugin')`
+> **Note:** The filename must follow the `{globalName}-main.js` format. The host automatically extracts the globalName from the URL.
 
 **Step 3: Refresh the page**
 
@@ -347,7 +348,7 @@ Output a **single JS file** in IIFE format that registers the extension object o
 | Item | Requirement |
 |------|-------------|
 | Format | IIFE (Immediately Invoked Function Expression) |
-| Output | Single JS file (e.g., `main.js`) |
+| Output | Single JS file, named `{globalName}-main.js` |
 | Global Variable | Registered on `window`, must be globally unique |
 | CSS | Bundled into JS (no separate CSS files) |
 | Dependencies | All dependencies bundled in, no external imports |
@@ -356,20 +357,25 @@ Output a **single JS file** in IIFE format that registers the extension object o
 
 ```typescript
 // vite.config.ts
+import { readFileSync } from 'node:fs'
 import { defineConfig } from 'vite'
 import vue from '@vitejs/plugin-vue'  // If using Vue
+
+const manifest = JSON.parse(readFileSync('./manifest.json', 'utf-8'))
+const globalName: string = manifest.globalName
 
 export default defineConfig({
   plugins: [vue()],
   define: {
     'process.env.NODE_ENV': JSON.stringify('production'),
+    '__EXTENSION_GLOBAL_NAME__': JSON.stringify(globalName),
   },
   build: {
     lib: {
       entry: 'src/extension/index.ts',
-      name: 'AcmeQuizExtension',      // Global variable name on window (company+product)
+      name: globalName,               // Read from manifest.json
       formats: ['iife'],
-      fileName: () => 'main.js',
+      fileName: () => `${globalName}-main.js`,
     },
     cssCodeSplit: false,               // Bundle CSS into JS
     outDir: 'dist-extension',
@@ -378,6 +384,8 @@ export default defineConfig({
 })
 ```
 
+> `globalName` and output filename are both read from `manifest.json` automatically.
+> `__EXTENSION_GLOBAL_NAME__` is replaced at build time with the actual value, used for runtime global variable registration (see extension entry example below).
 > The `process.env.NODE_ENV` define is required, otherwise Vue/React framework code will throw errors in the browser.
 
 ### 5.4 Local Development Server
@@ -386,12 +394,17 @@ export default defineConfig({
 // scripts/dev-server.mjs
 import http from 'node:http';
 import { readFile } from 'node:fs/promises';
+import path from 'node:path';
 
 const port = 8080;
+const distDir = 'dist-extension';
+
 const server = http.createServer(async (req, res) => {
-  if (req.url === '/main.js' || req.url?.startsWith('/main.js?')) {
+  const pathname = req.url?.split('?')[0];
+  // Serve any {globalName}-main.js from dist-extension/
+  if (pathname?.endsWith('-main.js')) {
     try {
-      const bundle = await readFile('dist-extension/main.js', 'utf8');
+      const bundle = await readFile(path.join(distDir, pathname.slice(1)), 'utf8');
       res.writeHead(200, {
         'Content-Type': 'application/javascript; charset=utf-8',
         'Access-Control-Allow-Origin': '*',
@@ -400,16 +413,16 @@ const server = http.createServer(async (req, res) => {
       res.end(bundle);
     } catch {
       res.writeHead(404, { 'Content-Type': 'text/plain' });
-      res.end('dist-extension/main.js not found. Run build first.');
+      res.end(pathname.slice(1) + ' not found in ' + distDir + '. Run build first.');
     }
     return;
   }
   res.writeHead(200, { 'Content-Type': 'text/plain' });
-  res.end('Extension dev server: http://localhost:' + port + '/main.js');
+  res.end('Extension dev server running on http://localhost:' + port);
 });
 
 server.listen(port, '0.0.0.0', () => {
-  console.log('Dev server: http://localhost:' + port + '/main.js');
+  console.log('Dev server: http://localhost:' + port);
 });
 ```
 
@@ -434,20 +447,20 @@ server.listen(port, '0.0.0.0', () => {
 └───────────────────────────────────────────┘
 
 ┌─ Terminal 2 ──────────────────────────────┐
-│ npm run dev:serve                         │
-│ → HTTP server at localhost:8080/main.js   │
-└───────────────────────────────────────────┘
+│ npm run dev:serve                                    │
+│ → HTTP server at localhost:8080/{globalName}-main.js  │
+└──────────────────────────────────────────────────────┘
 
-┌─ Browser ─────────────────────────────────┐
-│ 1. Open the test environment reader       │
-│ 2. Run in console (once only):            │
-│    localStorage.setItem(                  │
-│      'epic_debug_plugin',                 │
-│      'http://localhost:8080/main.js'      │
-│    )                                      │
-│ 3. Refresh → extension loads              │
-│ 4. Edit code → auto-build → refresh       │
-└───────────────────────────────────────────┘
+┌─ Browser ────────────────────────────────────────────────────┐
+│ 1. Open the test environment reader                          │
+│ 2. Run in console (once only):                               │
+│    localStorage.setItem(                                     │
+│      'epic_debug_plugin',                                    │
+│      'http://localhost:8080/{globalName}-main.js'            │
+│    )                                                         │
+│ 3. Refresh → extension loads                                 │
+│ 4. Edit code → auto-build → refresh                          │
+└──────────────────────────────────────────────────────────────┘
 ```
 
 ---
@@ -577,7 +590,7 @@ We assign each team an independent directory on CDN, organized by version:
 https://cdn.example.com/extensions/
 ├── {company}/
 │   └── v{version}/
-│       ├── main.js           ← Entry script
+│       ├── {globalName}-main.js  ← Entry script
 │       ├── assets/           ← Build output assets
 │       │   ├── star.png
 │       │   └── puzzle.jpg
@@ -586,7 +599,7 @@ https://cdn.example.com/extensions/
 
 Example:
 ```
-https://cdn.example.com/extensions/acme/v1.0.0/main.js
+https://cdn.example.com/extensions/acme/v1.0.0/AcmeQuizExtension-main.js
 https://cdn.example.com/extensions/acme/v1.0.0/assets/star.png
 ```
 
@@ -614,7 +627,7 @@ Each extension must provide a `manifest.json` metadata file.
   "name": "Acme Quiz Extension",
   "version": "1.0.0",
   "globalName": "AcmeQuizExtension",
-  "entry": "main.js"
+  "entry": "AcmeQuizExtension-main.js"
 }
 ```
 
@@ -631,7 +644,7 @@ tencent-flashcard-extension      → TencentFlashcardExtension
 | `name` | string | Yes | Extension display name | `Acme Quiz Extension` |
 | `version` | string | Yes | Semantic version number | `1.0.0` |
 | `globalName` | string | Yes | Global variable name on `window` (PascalCase, must match code) | `AcmeQuizExtension` |
-| `entry` | string | Yes | Entry JS filename | `main.js` |
+| `entry` | string | Yes | Entry JS filename (`{globalName}-main.js`) | `AcmeQuizExtension-main.js` |
 
 ---
 
@@ -654,7 +667,7 @@ Third-party submits source code
 We review + compile + build
     │
     ▼
-Build artifacts (main.js + assets) deployed to CDN
+Build artifacts ({globalName}-main.js + assets) deployed to CDN
     │
     ▼
 Backend configures the extension URL for the associated book

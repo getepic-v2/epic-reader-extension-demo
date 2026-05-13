@@ -45,7 +45,7 @@ thinkacademy-star-extension/
   "name": "ThinkAcademy Star Extension",
   "version": "1.0.0",
   "globalName": "ThinkacademyStarExtension",
-  "entry": "main.js"
+  "entry": "ThinkacademyStarExtension-main.js"
 }
 ```
 
@@ -483,8 +483,12 @@ function getPageStars(context: ExtensionContext): Star[] {
 ```typescript
 // vite.config.ts
 import { fileURLToPath, URL } from 'node:url'
+import { readFileSync } from 'node:fs'
 import { defineConfig } from 'vite'
 import vue from '@vitejs/plugin-vue'
+
+const manifest = JSON.parse(readFileSync('./manifest.json', 'utf-8'))
+const globalName: string = manifest.globalName
 
 export default defineConfig(({ mode }) => ({
   plugins: [vue()],
@@ -498,9 +502,9 @@ export default defineConfig(({ mode }) => ({
     build: {
       lib: {
         entry: fileURLToPath(new URL('./src/extension/index.ts', import.meta.url)),
-        name: 'ThinkacademyStarExtension',
+        name: globalName,
         formats: ['iife'] as const,
-        fileName: () => 'main.js',
+        fileName: () => `${globalName}-main.js`,
       },
       cssCodeSplit: false,
       outDir: 'dist-extension',
@@ -535,7 +539,7 @@ npm run dev:serve
 # https://webqa-new.getepic.dev/app/read/{bookId}
 
 # DevTools console (one-time):
-localStorage.setItem('epic_debug_plugin', 'http://localhost:8080/main.js')
+localStorage.setItem('epic_debug_plugin', 'http://localhost:8080/ThinkacademyStarExtension-main.js')
 
 # Reload; the extension loads from your dev server.
 # Edit code → auto rebuild → refresh → see changes

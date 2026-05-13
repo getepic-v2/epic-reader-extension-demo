@@ -15,10 +15,10 @@ const server = http.createServer(async (request, response) => {
     );
     const pathname = requestUrl.pathname;
 
-    if (pathname === '/main.js') {
+    if (pathname === '/EpicLabsStarExtension-main.js') {
         try {
             const bundle = await readFile(
-                path.join(distDir, 'main.js'),
+                path.join(distDir, 'EpicLabsStarExtension-main.js'),
                 'utf8'
             );
             response.writeHead(200, {
@@ -30,7 +30,7 @@ const server = http.createServer(async (request, response) => {
         } catch {
             response.writeHead(404, { 'Content-Type': 'text/plain' });
             response.end(
-                'dist-extension/main.js not found. Run "npm run dev:extension" first.'
+                'dist-extension/EpicLabsStarExtension-main.js not found. Run "npm run dev:extension" first.'
             );
         }
         return;
@@ -43,17 +43,17 @@ const server = http.createServer(async (request, response) => {
         [
             'Epic Labs Extension Dev Server',
             '',
-            `Bundle:   http://localhost:${port}/main.js`,
+            `Bundle:   http://localhost:${port}/EpicLabsStarExtension-main.js`,
             '',
             'Usage:',
             `  1. Run "npm run dev:extension" in another terminal`,
-            `  2. Open reader with ?debug_plugin=http://localhost:${port}/main.js`,
+            `  2. Open reader with ?debug_plugin=http://localhost:${port}/EpicLabsStarExtension-main.js`,
         ].join('\n')
     );
 });
 
 server.listen(port, '0.0.0.0', () => {
     process.stdout.write(
-        `Extension dev server listening at http://localhost:${port}/main.js\n`
+        `Extension dev server listening at http://localhost:${port}/EpicLabsStarExtension-main.js\n`
     );
 });

@@ -48,7 +48,7 @@ npm run dev:serve
 Open the test environment reader in your browser and run in the console (once only):
 
 ```javascript
-localStorage.setItem('epic_debug_plugin', 'http://localhost:8080/main.js')
+localStorage.setItem('epic_debug_plugin', 'http://localhost:8080/EpicLabsStarExtension-main.js')
 ```
 
 Refresh the page to see the extension load and run.
@@ -65,7 +65,7 @@ localStorage.removeItem('epic_debug_plugin')
 ## Build
 
 ```bash
-# Production build, outputs dist-extension/main.js
+# Production build, outputs dist-extension/{globalName}-main.js
 npm run build:extension
 ```
 

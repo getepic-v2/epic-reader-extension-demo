@@ -79,7 +79,7 @@ Epic Reader Extension 是 Epic 阅读器提供的扩展机制，允许第三方�
 
 ### 3.1 最简示例
 
-创建 `main.js`：
+创建 `{globalName}-main.js`（例如 `AcmeQuizExtension-main.js`）：
 
 ```javascript
 (function() {
@@ -124,7 +124,7 @@ npx serve . --cors -l 8080
 python3 -m http.server 8080
 ```
 
-确认 `http://localhost:8080/main.js` 可以访问。
+确认 `http://localhost:8080/{globalName}-main.js` 可以访问（例如 `http://localhost:8080/AcmeQuizExtension-main.js`）。
 
 **第二步：注册扩展地址**
 
@@ -139,10 +139,11 @@ https://webqa-new.getepic.dev/app/read/{bookId}
 在浏览器开发者工具的 Console 中执行：
 
 ```javascript
-localStorage.setItem('epic_debug_plugin', 'http://localhost:8080/main.js')
+localStorage.setItem('epic_debug_plugin', 'http://localhost:8080/AcmeQuizExtension-main.js')
 ```
 
 > 此设置持久生效，只需执行一次。清除方式：`localStorage.removeItem('epic_debug_plugin')`
+> **注意：** 文件名必须为 `{globalName}-main.js` 格式，宿主会从 URL 中自动提取 globalName。
 
 **第三步：刷新页面**
 
@@ -348,7 +349,7 @@ my-extension/
 | 项目 | 要求 |
 |------|------|
 | 格式 | IIFE（自执行函数） |
-| 输出 | 单个 JS 文件（如 `main.js`） |
+| 输出 | 单个 JS 文件，命名为 `{globalName}-main.js` |
 | 全局变量 | 在 `window` 上注册，名称全局唯一 |
 | CSS | 打包进 JS（不能有独立 CSS 文件） |
 | 依赖 | 所有依赖打包进去，不能有外部 import |
@@ -357,20 +358,25 @@ my-extension/
 
 ```typescript
 // vite.config.ts
+import { readFileSync } from 'node:fs'
 import { defineConfig } from 'vite'
 import vue from '@vitejs/plugin-vue'  // 如果用 Vue
+
+const manifest = JSON.parse(readFileSync('./manifest.json', 'utf-8'))
+const globalName: string = manifest.globalName
 
 export default defineConfig({
   plugins: [vue()],
   define: {
     'process.env.NODE_ENV': JSON.stringify('production'),
+    '__EXTENSION_GLOBAL_NAME__': JSON.stringify(globalName),
   },
   build: {
     lib: {
       entry: 'src/extension/index.ts',
-      name: 'AcmeQuizExtension',      // window 上的全局变量名（公司+产品）
+      name: globalName,               // 从 manifest.json 读取
       formats: ['iife'],
-      fileName: () => 'main.js',
+      fileName: () => `${globalName}-main.js`,
     },
     cssCodeSplit: false,               // CSS 打入 JS
     outDir: 'dist-extension',
@@ -379,6 +385,9 @@ export default defineConfig({
 })
 ```
 
+> `globalName` 和输出文件名均从 `manifest.json` 自动读取，无需手动维护。
+> `__EXTENSION_GLOBAL_NAME__` 会在构建时被替换为实际值，用于运行时注册全局变量（见下方扩展入口示例）。
+
 > `process.env.NODE_ENV` 的 define 是必须的，否则 Vue/React 等框架的代码在浏览器中会报错。
 
 ### 5.4 本地开发服务
@@ -386,13 +395,18 @@ export default defineConfig({
 ```javascript
 // scripts/dev-server.mjs
 import http from 'node:http';
-import { readFile } from 'node:fs/promises';
+import { readFile, readdir } from 'node:fs/promises';
+import path from 'node:path';
 
 const port = 8080;
+const distDir = 'dist-extension';
+
 const server = http.createServer(async (req, res) => {
-  if (req.url === '/main.js' || req.url?.startsWith('/main.js?')) {
+  const pathname = req.url?.split('?')[0];
+  // Serve any {globalName}-main.js from dist-extension/
+  if (pathname?.endsWith('-main.js')) {
     try {
-      const bundle = await readFile('dist-extension/main.js', 'utf8');
+      const bundle = await readFile(path.join(distDir, pathname.slice(1)), 'utf8');
       res.writeHead(200, {
         'Content-Type': 'application/javascript; charset=utf-8',
         'Access-Control-Allow-Origin': '*',
@@ -401,16 +415,16 @@ const server = http.createServer(async (req, res) => {
       res.end(bundle);
     } catch {
       res.writeHead(404, { 'Content-Type': 'text/plain' });
-      res.end('dist-extension/main.js not found. Run build first.');
+      res.end(pathname.slice(1) + ' not found in ' + distDir + '. Run build first.');
     }
     return;
   }
   res.writeHead(200, { 'Content-Type': 'text/plain' });
-  res.end('Extension dev server: http://localhost:' + port + '/main.js');
+  res.end('Extension dev server running on http://localhost:' + port);
 });
 
 server.listen(port, '0.0.0.0', () => {
-  console.log('Dev server: http://localhost:' + port + '/main.js');
+  console.log('Dev server: http://localhost:' + port);
 });
 ```
 
@@ -434,21 +448,21 @@ server.listen(port, '0.0.0.0', () => {
 │ → Vite watch 模式，代码变更自动重新构建      │
 └────────────────────────────────────────────┘
 
-┌─ 终端 2 ──────────────────────────────────┐
-│ npm run dev:serve                          │
-│ → HTTP 服务，提供 localhost:8080/main.js    │
-└────────────────────────────────────────────┘
+┌─ 终端 2 ──────────────────────────────────────────────┐
+│ npm run dev:serve                                     │
+│ → HTTP 服务，提供 localhost:8080/{globalName}-main.js  │
+└───────────────────────────────────────────────────────┘
 
-┌─ 浏览器 ──────────────────────────────────┐
-│ 1. 打开测试环境阅读器                       │
-│ 2. 控制台执行（只需一次）：                   │
-│    localStorage.setItem(                   │
-│      'epic_debug_plugin',                  │
-│      'http://localhost:8080/main.js'       │
-│    )                                       │
-│ 3. 刷新页面 → 扩展加载                      │
-│ 4. 修改代码 → 自动构建 → 刷新 → 看效果      │
-└────────────────────────────────────────────┘
+┌─ 浏览器 ─────────────────────────────────────────────────────────┐
+│ 1. 打开测试环境阅读器                                              │
+│ 2. 控制台执行（只需一次）：                                         │
+│    localStorage.setItem(                                         │
+│      'epic_debug_plugin',                                        │
+│      'http://localhost:8080/{globalName}-main.js'                │
+│    )                                                             │
+│ 3. 刷新页面 → 扩展加载                                            │
+│ 4. 修改代码 → 自动构建 → 刷新 → 看效果                             │
+└──────────────────────────────────────────────────────────────────┘
 ```
 
 ---
@@ -578,7 +592,7 @@ var offsetLeft = rect.x - parentRect.x;
 https://cdn.example.com/extensions/
 ├── {公司名}/
 │   └── v{版本号}/
-│       ├── main.js           ← 入口脚本
+│       ├── {globalName}-main.js  ← 入口脚本
 │       ├── assets/           ← 构建产物中的静态资源
 │       │   ├── star.png
 │       │   └── puzzle.jpg
@@ -587,7 +601,7 @@ https://cdn.example.com/extensions/
 
 示例：
 ```
-https://cdn.example.com/extensions/acme/v1.0.0/main.js
+https://cdn.example.com/extensions/acme/v1.0.0/AcmeQuizExtension-main.js
 https://cdn.example.com/extensions/acme/v1.0.0/assets/star.png
 ```
 
@@ -615,7 +629,7 @@ build: {
   "name": "Acme Quiz Extension",
   "version": "1.0.0",
   "globalName": "AcmeQuizExtension",
-  "entry": "main.js"
+  "entry": "AcmeQuizExtension-main.js"
 }
 ```
 
@@ -632,7 +646,7 @@ tencent-flashcard-extension      → TencentFlashcardExtension
 | `name` | string | 是 | 扩展显示名称 | `Acme Quiz Extension` |
 | `version` | string | 是 | 语义化版本号 | `1.0.0` |
 | `globalName` | string | 是 | `window` 上的全局变量名（大驼峰，与代码一致） | `AcmeQuizExtension` |
-| `entry` | string | 是 | 入口 JS 文件名 | `main.js` |
+| `entry` | string | 是 | 入口 JS 文件名（`{globalName}-main.js`） | `AcmeQuizExtension-main.js` |
 
 ---
 
@@ -655,7 +669,7 @@ tencent-flashcard-extension      → TencentFlashcardExtension
 我们审核 + 编译构建
     │
     ▼
-构建产物（main.js + 静态资源）部署到 CDN
+构建产物（{globalName}-main.js + 静态资源）部署到 CDN
     │
     ▼
 后台配置书籍关联的扩展地址
