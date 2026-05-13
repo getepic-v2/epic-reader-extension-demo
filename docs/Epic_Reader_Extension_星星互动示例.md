@@ -43,8 +43,8 @@ thinkacademy-star-extension/
   "id": "thinkacademy-star-extension",
   "name": "ThinkAcademy Star Extension",
   "version": "1.0.0",
-  "globalName": "ThinkacademyStarExtension",
-  "entry": "ThinkacademyStarExtension-main.js"
+  "globalName": "EpicLabsStarExtension",
+  "entry": "EpicLabsStarExtension-main.js"
 }
 ```
 
@@ -197,7 +197,7 @@ thinkacademy-star-extension/
   // 扩展主体
   // ==========================================
 
-  window.ThinkacademyStarExtension = {
+  window.EpicLabsStarExtension = {
     activate: function(context) {
 
       // --- 初始化渲染容器 ---
@@ -370,7 +370,7 @@ function getPageStars(context: ExtensionContext): Star[] {
   return page?.stars || []
 }
 
-;(window as any).ThinkacademyStarExtension = {
+;(window as any).EpicLabsStarExtension = {
   activate(context: ExtensionContext) {
     const root = context.slots.get('reading-area')
     injectStyles(root, STAR_CSS, 'star-styles')
@@ -538,7 +538,7 @@ npm run dev:serve
 # https://webqa-new.getepic.dev/app/read/{bookId}
 
 # 控制台设置（只需一次）：
-localStorage.setItem('epic_debug_plugin', 'http://localhost:8080/ThinkacademyStarExtension-main.js')
+localStorage.setItem('epic_debug_plugin', 'http://localhost:8080/EpicLabsStarExtension-main.js')
 
 # 刷新页面，扩展即可加载
 # 修改代码 → 自动构建 → 刷新浏览器 → 看到更新

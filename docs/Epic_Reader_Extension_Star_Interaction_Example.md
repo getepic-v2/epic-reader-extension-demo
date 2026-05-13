@@ -44,8 +44,8 @@ thinkacademy-star-extension/
   "id": "thinkacademy-star-extension",
   "name": "ThinkAcademy Star Extension",
   "version": "1.0.0",
-  "globalName": "ThinkacademyStarExtension",
-  "entry": "ThinkacademyStarExtension-main.js"
+  "globalName": "EpicLabsStarExtension",
+  "entry": "EpicLabsStarExtension-main.js"
 }
 ```
 
@@ -197,7 +197,7 @@ Below is a framework-free JavaScript implementation:
   // Extension body
   // ==========================================
 
-  window.ThinkacademyStarExtension = {
+  window.EpicLabsStarExtension = {
     activate: function(context) {
 
       // --- Mount container ---
@@ -370,7 +370,7 @@ function getPageStars(context: ExtensionContext): Star[] {
   return page?.stars || []
 }
 
-;(window as any).ThinkacademyStarExtension = {
+;(window as any).EpicLabsStarExtension = {
   activate(context: ExtensionContext) {
     const root = context.slots.get(‘reading-area’)
     injectStyles(root, STAR_CSS, ‘star-styles’)
@@ -539,7 +539,7 @@ npm run dev:serve
 # https://webqa-new.getepic.dev/app/read/{bookId}
 
 # DevTools console (one-time):
-localStorage.setItem('epic_debug_plugin', 'http://localhost:8080/ThinkacademyStarExtension-main.js')
+localStorage.setItem('epic_debug_plugin', 'http://localhost:8080/EpicLabsStarExtension-main.js')
 
 # Reload; the extension loads from your dev server.
 # Edit code → auto rebuild → refresh → see changes
