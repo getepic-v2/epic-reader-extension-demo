@@ -3,6 +3,8 @@
 > 版本：1.0.0  
 > 更新日期：2026-04-27
 
+> **首次合作？** 请先阅读[合作入驻指南](./合作入驻指南.md)，完成仓库、API 凭证、测试账号等申请。
+
 ---
 
 ## 一、概述
@@ -244,6 +246,8 @@ root.appendChild(style);
 **getLabsData() 说明：**
 
 返回书籍绑定的互动原始数据。数据格式由第三方团队与我们后端协商定义，宿主只做透传，不解析不处理。第三方在扩展内自行解析。
+
+> 互动数据（labData）的查询和上传通过 Open API 完成，详见 [Open API - Book Data Interface](./open-api-book.md)。
 
 ### 4.5 context.commands — 执行命令
 

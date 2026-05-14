@@ -79,7 +79,9 @@ npm run build:extension
 
 ## Documentation
 
+- [Onboarding Guide](./docs/Onboarding_Guide.md) / [合作入驻指南](./docs/合作入驻指南.md) — Start here if you're a new partner
 - [Developer Guide (English)](./docs/Epic_Reader_Extension_Developer_Guide.md)
 - [开发文档（中文）](./docs/Epic_Reader_Extension_开发文档.md)
+- [Open API - Book Data Interface](./docs/open-api-book.md)
 - [Star Interaction Example (English)](./docs/Epic_Reader_Extension_Star_Interaction_Example.md)
 - [星星互动示例（中文）](./docs/Epic_Reader_Extension_星星互动示例.md)

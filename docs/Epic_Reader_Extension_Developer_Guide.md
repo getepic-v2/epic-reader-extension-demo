@@ -3,6 +3,8 @@
 > Version: 1.0.0  
 > Last Updated: 2026-04-27
 
+> **New partner?** Please read the [Onboarding Guide](./Onboarding_Guide.md) first to request your repository, API credentials, and test account.
+
 ---
 
 ## 1. Overview
@@ -243,6 +245,8 @@ root.appendChild(style);
 **getLabsData() note:**
 
 Returns the raw interactive data bound to the book. The data format is defined by the third-party team in coordination with our backend. The host only passes through the data without parsing or processing. Extensions parse the data internally.
+
+> To query or upload interactive data (labData), use the Open API. See [Open API - Book Data Interface](./open-api-book.md).
 
 ### 4.5 context.commands — Execute Commands
 
