@@ -313,9 +313,46 @@ unsubscribe();
 
 ---
 
-## 5. Development Environment Setup
+## 5. TypeScript Type Support
 
-### 5.1 Project Structure (Recommended)
+We provide an official TypeScript type definitions package containing the full Extension API types (`ExtensionContext`, `Extension`, `BookData`).
+
+**Installation:**
+
+Add a `.npmrc` file to your project root:
+
+```
+@getepic-v2:registry=https://npm.pkg.github.com
+```
+
+Then install:
+
+```bash
+npm install -D @getepic-v2/reader-extension-types
+```
+
+**Usage:**
+
+```typescript
+import type { ExtensionContext, Extension } from '@getepic-v2/reader-extension-types'
+
+const extension: Extension = {
+  activate(context: ExtensionContext) {
+    const root = context.slots.get('reading-area')
+    const page = context.data.getCurrentPage()
+    // ...
+    return () => { /* cleanup */ }
+  }
+}
+```
+
+> The types package only contains Extension API interface definitions. Interactive data (labData) types should be defined by each third-party team according to their own data format.
+
+---
+
+## 6. Development Environment Setup
+
+### 6.1 Project Structure (Recommended)
 
 ```
 my-extension/
@@ -331,7 +368,7 @@ my-extension/
 └── package.json
 ```
 
-### 5.2 Build Requirements
+### 6.2 Build Requirements
 
 Output a **single JS file** in IIFE format that registers the extension object on `window`:
 
@@ -357,7 +394,7 @@ Output a **single JS file** in IIFE format that registers the extension object o
 | CSS | Bundled into JS (no separate CSS files) |
 | Dependencies | All dependencies bundled in, no external imports |
 
-### 5.3 Vite Build Configuration Example
+### 6.3 Vite Build Configuration Example
 
 ```typescript
 // vite.config.ts
@@ -392,7 +429,7 @@ export default defineConfig({
 > `__EXTENSION_GLOBAL_NAME__` is replaced at build time with the actual value, used for runtime global variable registration (see extension entry example below).
 > The `process.env.NODE_ENV` define is required, otherwise Vue/React framework code will throw errors in the browser.
 
-### 5.4 Local Development Server
+### 6.4 Local Development Server
 
 ```javascript
 // scripts/dev-server.mjs
@@ -430,7 +467,7 @@ server.listen(port, '0.0.0.0', () => {
 });
 ```
 
-### 5.5 package.json scripts (Recommended)
+### 6.5 package.json scripts (Recommended)
 
 ```json
 {
@@ -442,7 +479,7 @@ server.listen(port, '0.0.0.0', () => {
 }
 ```
 
-### 5.6 Development Workflow
+### 6.6 Development Workflow
 
 ```
 ┌─ Terminal 1 ──────────────────────────────┐
@@ -469,7 +506,7 @@ server.listen(port, '0.0.0.0', () => {
 
 ---
 
-## 6. Full Example
+## 7. Full Example
 
 For a complete star interaction extension example, see: [Epic_Reader_Extension_星星互动示例.md](./Epic_Reader_Extension_星星互动示例.md)
 
@@ -482,9 +519,9 @@ The example demonstrates:
 
 ---
 
-## 7. Important Notes
+## 8. Important Notes
 
-### 7.1 Style Isolation
+### 8.1 Style Isolation
 
 | Rule | Description |
 |------|-------------|
@@ -507,7 +544,7 @@ function injectStyles(shadowRoot, css, id) {
 }
 ```
 
-### 7.2 Cleanup Function
+### 8.2 Cleanup Function
 
 `activate` **must** return a cleanup function. It will be called when the extension is unloaded (e.g., switching books, page destruction):
 
@@ -531,7 +568,7 @@ activate: function(context) {
 }
 ```
 
-### 7.3 Global Variable Naming
+### 8.3 Global Variable Naming
 
 The variable name registered on `window` must be **globally unique**. Recommended format: `[CompanyName][ProductName]Extension`
 
@@ -542,7 +579,7 @@ window.BytedanceGameExtension = { activate: ... }; // bytedance-game-extension
 
 This name must match the `globalName` field in `manifest.json`.
 
-### 7.4 Book Page Positioning
+### 8.4 Book Page Positioning
 
 When interactive elements need to be precisely positioned on book pages, use `context.data.getFlipBookRect()`:
 
@@ -558,7 +595,7 @@ var offsetTop = rect.y - parentRect.y;
 var offsetLeft = rect.x - parentRect.x;
 ```
 
-### 7.5 Performance Recommendations
+### 8.5 Performance Recommendations
 
 **JS Files:**
 
@@ -582,7 +619,7 @@ var offsetLeft = rect.x - parentRect.x;
 | Clear Before Render | Listen to `pageTurnStart` to clear current page UI immediately, render new content on `pageChange` |
 | Batch DOM Updates | Minimize frequent DOM reflows by batching operations |
 
-### 7.6 Static Assets
+### 8.6 Static Assets
 
 All static assets (images, animations, fonts, etc.) are deployed as individual files to CDN, not inlined into JS. This keeps the JS bundle small, allows browser caching, and results in faster loading.
 
@@ -619,7 +656,7 @@ build: {
 
 ---
 
-## 8. manifest.json Specification
+## 9. manifest.json Specification
 
 Each extension must provide a `manifest.json` metadata file.
 
@@ -652,9 +689,9 @@ tencent-flashcard-extension      → TencentFlashcardExtension
 
 ---
 
-## 9. Delivery & Deployment
+## 10. Delivery & Deployment
 
-### 9.1 Deliverables Checklist
+### 10.1 Deliverables Checklist
 
 | Item | Required | Description |
 |------|----------|-------------|
@@ -662,7 +699,7 @@ tencent-flashcard-extension      → TencentFlashcardExtension
 | `manifest.json` | **Yes** | Extension metadata |
 | Static Assets | As needed | Large images, videos, etc. that need separate CDN deployment |
 
-### 9.2 Deployment Process
+### 10.2 Deployment Process
 
 ```
 Third-party submits source code
@@ -682,15 +719,15 @@ User opens book → Reader automatically loads extension
 
 Third-party developers **do not need** to understand our deployment process. After source code submission, we handle compilation, deployment, and release.
 
-### 9.3 Version Updates
+### 10.3 Version Updates
 
 Submit new version source code + update the `version` field in `manifest.json`. We recompile and redeploy. The process is transparent to users.
 
 ---
 
-## 10. Source Code Collaboration
+## 11. Source Code Collaboration
 
-### 10.1 Repository Structure
+### 11.1 Repository Structure
 
 We create an independent repository on GitHub for each team:
 
@@ -704,7 +741,7 @@ getepic-v2/
 
 Repository naming convention: `extension-{company}-{product}`
 
-### 10.2 Initial Repository Contents
+### 11.2 Initial Repository Contents
 
 The repository starts with only basic files, with no technology stack restrictions:
 
@@ -717,7 +754,7 @@ extension-acme-quiz/
 
 Third-party teams fork the repo and initialize their own project (Vue / React / vanilla JS — any choice).
 
-### 10.3 Collaboration Model (Fork + PR)
+### 11.3 Collaboration Model (Fork + PR)
 
 ```
 1. We create the repository with pre-filled manifest.json
@@ -739,7 +776,7 @@ Third-party teams fork the repo and initialize their own project (Vue / React / 
 - All changes go through PR review before merging
 - Version updates follow the same PR process
 
-### 10.4 Branch Convention (Recommended)
+### 11.4 Branch Convention (Recommended)
 
 | Branch | Purpose |
 |--------|---------|

@@ -314,9 +314,46 @@ unsubscribe();
 
 ---
 
-## 五、开发环境搭建
+## 五、TypeScript 类型支持
 
-### 5.1 项目结构（推荐）
+我们提供了官方的 TypeScript 类型定义包，包含 Extension API 的完整类型（`ExtensionContext`、`Extension`、`BookData`）。
+
+**安装：**
+
+在项目根目录创建 `.npmrc` 文件：
+
+```
+@getepic-v2:registry=https://npm.pkg.github.com
+```
+
+然后安装：
+
+```bash
+npm install -D @getepic-v2/reader-extension-types
+```
+
+**使用：**
+
+```typescript
+import type { ExtensionContext, Extension } from '@getepic-v2/reader-extension-types'
+
+const extension: Extension = {
+  activate(context: ExtensionContext) {
+    const root = context.slots.get('reading-area')
+    const page = context.data.getCurrentPage()
+    // ...
+    return () => { /* cleanup */ }
+  }
+}
+```
+
+> 类型包仅包含 Extension API 的接口定义。互动数据（labData）的类型由第三方团队根据自己的数据格式自行定义。
+
+---
+
+## 六、开发环境搭建
+
+### 6.1 项目结构（推荐）
 
 ```
 my-extension/
@@ -332,7 +369,7 @@ my-extension/
 └── package.json
 ```
 
-### 5.2 构建要求
+### 6.2 构建要求
 
 输出一个**单独的 JS 文件**（IIFE 格式），加载后在 `window` 上注册扩展对象：
 
@@ -358,7 +395,7 @@ my-extension/
 | CSS | 打包进 JS（不能有独立 CSS 文件） |
 | 依赖 | 所有依赖打包进去，不能有外部 import |
 
-### 5.3 Vite 构建配置示例
+### 6.3 Vite 构建配置示例
 
 ```typescript
 // vite.config.ts
@@ -394,7 +431,7 @@ export default defineConfig({
 
 > `process.env.NODE_ENV` 的 define 是必须的，否则 Vue/React 等框架的代码在浏览器中会报错。
 
-### 5.4 本地开发服务
+### 6.4 本地开发服务
 
 ```javascript
 // scripts/dev-server.mjs
@@ -432,7 +469,7 @@ server.listen(port, '0.0.0.0', () => {
 });
 ```
 
-### 5.5 package.json scripts（推荐）
+### 6.5 package.json scripts（推荐）
 
 ```json
 {
@@ -444,7 +481,7 @@ server.listen(port, '0.0.0.0', () => {
 }
 ```
 
-### 5.6 开发工作流
+### 6.6 开发工作流
 
 ```
 ┌─ 终端 1 ──────────────────────────────────┐
@@ -471,7 +508,7 @@ server.listen(port, '0.0.0.0', () => {
 
 ---
 
-## 六、完整示例
+## 七、完整示例
 
 完整的星星互动扩展示例请参见：[Epic_Reader_Extension_星星互动示例.md](./Epic_Reader_Extension_星星互动示例.md)
 
@@ -484,9 +521,9 @@ server.listen(port, '0.0.0.0', () => {
 
 ---
 
-## 七、注意事项
+## 八、注意事项
 
-### 7.1 样式隔离
+### 8.1 样式隔离
 
 | 规则 | 说明 |
 |------|------|
@@ -509,7 +546,7 @@ function injectStyles(shadowRoot, css, id) {
 }
 ```
 
-### 7.2 清理函数
+### 8.2 清理函数
 
 `activate` **必须**返回一个清理函数，扩展卸载时（如切换书籍、页面销毁）会调用：
 
@@ -533,7 +570,7 @@ activate: function(context) {
 }
 ```
 
-### 7.3 全局变量命名
+### 8.3 全局变量命名
 
 扩展注册到 `window` 上的变量名必须**全局唯一**，建议格式：`[公司名][产品名]Extension`
 
@@ -544,7 +581,7 @@ window.BytedanceGameExtension = { activate: ... }; // bytedance-game-extension
 
 此名称需要与 `manifest.json` 中的 `globalName` 字段一致。
 
-### 7.4 书页定位
+### 8.4 书页定位
 
 互动元素需要精确覆盖在书页上时，使用 `context.data.getFlipBookRect()` 获取书页位置：
 
@@ -560,7 +597,7 @@ var offsetTop = rect.y - parentRect.y;
 var offsetLeft = rect.x - parentRect.x;
 ```
 
-### 7.5 性能建议
+### 8.5 性能建议
 
 **JS 文件：**
 
@@ -584,7 +621,7 @@ var offsetLeft = rect.x - parentRect.x;
 | 翻页先清后渲染 | 监听 `pageTurnStart` 立即清除当前页 UI，`pageChange` 时再渲染新内容 |
 | 避免频繁重排 | DOM 操作尽量批量处理 |
 
-### 7.6 静态资源
+### 8.6 静态资源
 
 所有静态资源（图片、动画、字体等）均以独立文件形式部署到 CDN，不内联到 JS 中。这样 JS 体积更小，资源可被浏览器缓存，加载更快。
 
@@ -621,7 +658,7 @@ build: {
 
 ---
 
-## 八、manifest.json 规范
+## 九、manifest.json 规范
 
 每个扩展需要提供一份 `manifest.json` 元数据文件。
 
@@ -654,9 +691,9 @@ tencent-flashcard-extension      → TencentFlashcardExtension
 
 ---
 
-## 九、交付与上线
+## 十、交付与上线
 
-### 9.1 交付物清单
+### 10.1 交付物清单
 
 | 文件 | 必须 | 说明 |
 |------|------|------|
@@ -664,7 +701,7 @@ tencent-flashcard-extension      → TencentFlashcardExtension
 | `manifest.json` | **是** | 扩展元数据 |
 | 静态资源 | 视情况 | 大图片、视频等需要单独部署到 CDN 的资源 |
 
-### 9.2 上线流程
+### 10.2 上线流程
 
 ```
 第三方提交源码
@@ -684,15 +721,15 @@ tencent-flashcard-extension      → TencentFlashcardExtension
 
 第三方**无需**了解我们的部署流程。源码提交后，我们统一编译、部署、上线。
 
-### 9.3 版本更新
+### 10.3 版本更新
 
 提交新版本源码 + 更新 `manifest.json` 中的 `version` 字段。我们重新编译部署，对用户透明。
 
 ---
 
-## 十、源码协作流程
+## 十一、源码协作流程
 
-### 10.1 仓库结构
+### 11.1 仓库结构
 
 我们会在 GitHub 上为每个团队创建一个独立仓库：
 
@@ -706,7 +743,7 @@ getepic-v2/
 
 仓库命名规范：`extension-{公司名}-{产品名}`
 
-### 10.2 初始仓库内容
+### 11.2 初始仓库内容
 
 仓库初始只包含基础文件，不限定技术栈：
 
@@ -719,7 +756,7 @@ extension-acme-quiz/
 
 第三方 fork 后自行初始化项目（Vue / React / 原生 JS 均可）。
 
-### 10.3 协作方式（Fork + PR）
+### 11.3 协作方式（Fork + PR）
 
 ```
 1. 我们创建仓库，预填 manifest.json
@@ -741,7 +778,7 @@ extension-acme-quiz/
 - 所有改动都经过 PR review 才能合并
 - 版本更新同样通过 PR 提交
 
-### 10.4 分支规范（建议）
+### 11.4 分支规范（建议）
 
 | 分支 | 用途 |
 |------|------|

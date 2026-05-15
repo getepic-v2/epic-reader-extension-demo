@@ -159,7 +159,7 @@ curl -X GET "https://{domain}/openapi/book.php?action=getFullData&book_id=5119" 
 | `epub.extra` | object | Additional content such as copyright page |
 | `timePerPage` | int | Recommended reading time per page (seconds) |
 | `book` | object | Book metadata |
-| `book.labData` | string | Interactive data (XML format). Empty string if no data exists |
+| `book.labData` | string | Interactive data (string format, defined by the partner). Empty string if no data exists |
 | `book.extensionUrl` | string | Frontend extension JS URL (only present when labData exists) |
 | `book.audio` | int | Whether the book has audio (0/1). Note: audio is automatically set to 0 when labData exists |
 
@@ -182,7 +182,7 @@ Content-Type: application/json
 |-----------|----------|------|----------|-------------|
 | `action` | Query | string | Yes | Fixed value: `upsertLabData` |
 | `book_id` | Body | int | Yes | Book ID |
-| `labdata` | Body | string | Yes | Interactive data (XML format) |
+| `labdata` | Body | string | Yes | Interactive data (string format, defined by the partner) |
 
 **Request Body Example**
 
@@ -267,6 +267,6 @@ pm.request.headers.upsert({ key: "X-Timestamp", value: timestamp });
 
 1. **Clock Synchronization**: Ensure your server time is accurate. Timestamp drift exceeding 5 minutes will cause request rejection.
 2. **Signature Content**: For GET requests, the body is an empty string. The signature content is `"" + timestamp`.
-3. **labData Format**: labData is an XML string. Ensure proper formatting and escaping.
+3. **labData Format**: labData is a string whose format is defined by the partner. Ensure proper escaping when embedding in JSON.
 4. **CDN Token Expiration**: CDN URLs in `epub.spine` contain time-limited tokens. Request fresh data when tokens expire.
 5. **Whitelist**: Only authorized `book_id` values can be accessed. The whitelist is configured by administrators.

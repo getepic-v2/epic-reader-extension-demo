@@ -19,6 +19,7 @@
     "vue-router": "^4.5.0"
   },
   "devDependencies": {
+    "@getepic-v2/reader-extension-types": "^1.0.0",
     "@tsconfig/node20": "^20.1.4",
     "@types/node": "^20.17.0",
     "@vitejs/plugin-vue": "^5.2.3",

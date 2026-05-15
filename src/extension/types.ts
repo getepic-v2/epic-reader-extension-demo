@@ -1,4 +1,10 @@
-// --- Star Data Types ---
+export type {
+  BookData,
+  ExtensionContext,
+  Extension,
+} from '@getepic-v2/reader-extension-types'
+
+// --- Star Data Types (specific to this demo's labsData format) ---
 
 export type StarType =
   | 'information'
@@ -48,53 +54,4 @@ export interface EpicReaderBookData {
   startVideo?: { url: string }
   endVideo?: { url: string }
   pages: EpicReaderBookPage[]
-}
-
-// --- Book Data (common fields) ---
-
-export interface BookData {
-  id: number
-  title: string
-  type: number // 1=Standard, 2=Audiobook, 3=Article, 4=Video
-  author?: string
-  numPages?: number
-  aspectRatio?: number
-  labData?: string
-  coverColorR?: number
-  coverColorG?: number
-  coverColorB?: number
-  language?: number
-  bookDescription?: string
-  [key: string]: unknown // other fields
-}
-
-// --- Extension Context API ---
-
-export interface ExtensionContext {
-  version: string
-  analytics: {
-    log(event: string, params?: Record<string, unknown>): void
-  }
-  slots: {
-    get(slotId: string): ShadowRoot
-  }
-  data: {
-    getBookId(): number | undefined
-    getBookData(): BookData
-    getCurrentPage(): number
-    getLabsData(): unknown
-    getFlipBookRect(): { x: number; y: number; width: number; height: number } | null
-  }
-  commands: {
-    execute(command: string, payload?: unknown): void
-  }
-  events: {
-    on(eventName: string, callback: (payload?: unknown) => void): () => void
-  }
-}
-
-export interface Extension {
-  activate(
-    context: ExtensionContext,
-  ): void | (() => void) | { deactivate?: () => void }
 }
