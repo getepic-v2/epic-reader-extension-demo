@@ -644,15 +644,25 @@ https://cdn.example.com/extensions/acme/v1.0.0/AcmeQuizExtension-main.js
 https://cdn.example.com/extensions/acme/v1.0.0/assets/star.png
 ```
 
-**Use relative paths during development** (e.g., `./images/star.png`). We automatically replace relative paths with the corresponding CDN absolute paths during build. No action needed from third-party developers.
+**Use relative paths during development** (e.g., `./images/star.png`). We inject the correct CDN base path via the `--base` flag during our build process. No action needed from third-party developers.
 
-**Vite Build Configuration:**
+**Important: Do not set `base` in your Vite config.** We handle this during our build step:
+
+```bash
+vite build --base=https://cdn.example.com/extensions/acme/v1.0.0/
+```
+
+This ensures all static asset references in the build output point to the correct CDN location.
+
+**Vite Build Configuration (third-party):**
 
 ```javascript
 build: {
   assetsInlineLimit: 0,  // Output all assets as individual files, no base64 inlining
 }
 ```
+
+> **Note:** Do not set `base` in your `vite.config.ts` — leave it as default. We will inject the correct CDN path at build time.
 
 ---
 

@@ -646,15 +646,25 @@ https://cdn.example.com/extensions/acme/v1.0.0/AcmeQuizExtension-main.js
 https://cdn.example.com/extensions/acme/v1.0.0/assets/star.png
 ```
 
-**第三方开发时使用相对路径即可**（如 `./images/star.png`），我们在编译时会自动将相对路径替换为对应的 CDN 绝对路径，第三方无需关心。
+**第三方开发时使用相对路径即可**（如 `./images/star.png`），我们在编译构建时会通过 `--base` 参数自动注入 CDN 绝对路径，第三方无需关心。
 
-**Vite 构建配置：**
+**重要：第三方不要自行设置 `base` 配置。** 我们在编译时会统一处理：
+
+```bash
+vite build --base=https://cdn.example.com/extensions/acme/v1.0.0/
+```
+
+这样构建产物中所有静态资源的引用路径会自动指向正确的 CDN 地址。
+
+**Vite 构建配置（第三方）：**
 
 ```javascript
 build: {
   assetsInlineLimit: 0,  // 所有资源输出为独立文件，不内联 base64
 }
 ```
+
+> **注意：** 不要在 `vite.config.ts` 中设置 `base`，保持默认即可。我们会在构建命令中注入正确的 CDN 路径。
 
 ---
 
