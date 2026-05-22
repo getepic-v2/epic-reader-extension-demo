@@ -263,6 +263,12 @@ context.commands.execute('openModal', { width: 900, height: 600 });
 
 // 关闭弹窗
 context.commands.execute('closeModal');
+
+// 翻到上一页
+context.commands.execute('previousPage');
+
+// 翻到下一页
+context.commands.execute('nextPage');
 ```
 
 **openDrawer 说明：**

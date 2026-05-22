@@ -262,6 +262,12 @@ context.commands.execute('openModal', { width: 900, height: 600 });
 
 // Close the modal
 context.commands.execute('closeModal');
+
+// Go to previous page
+context.commands.execute('previousPage');
+
+// Go to next page
+context.commands.execute('nextPage');
 ```
 
 **openDrawer behavior:**
