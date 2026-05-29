@@ -268,6 +268,9 @@ context.commands.execute('previousPage');
 
 // Go to next page
 context.commands.execute('nextPage');
+
+// Look up a word definition
+context.commands.execute('lookup_word', 'apple');
 ```
 
 **openDrawer behavior:**
@@ -295,6 +298,20 @@ The host provides the close button (top-right ✕), backdrop click-to-close, and
 |--------|------|---------|-------------|
 | `width` | `number` | `800` | Modal width in pixels |
 | `height` | `number` | `600` | Modal height in pixels |
+
+**lookup_word behavior:**
+
+When called, the host displays a word definition dialog showing the meaning of the specified word.
+
+```javascript
+context.commands.execute('lookup_word', 'apple');
+```
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| payload | `string` | Yes | The word to look up |
+
+> Use case: when extension content contains vocabulary words, this allows users to tap a word to see its definition. If an empty string or no argument is passed, the command does nothing.
 
 ### 4.6 context.events — Event Listening
 

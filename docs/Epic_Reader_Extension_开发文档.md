@@ -269,6 +269,9 @@ context.commands.execute('previousPage');
 
 // 翻到下一页
 context.commands.execute('nextPage');
+
+// 查词释义
+context.commands.execute('lookup_word', 'apple');
 ```
 
 **openDrawer 说明：**
@@ -296,6 +299,20 @@ context.commands.execute('nextPage');
 |------|------|--------|------|
 | `width` | `number` | `800` | 弹窗宽度（像素） |
 | `height` | `number` | `600` | 弹窗高度（像素） |
+
+**lookup_word 说明：**
+
+调用后宿主会弹出一个查词释义弹窗，展示指定单词的定义。
+
+```javascript
+context.commands.execute('lookup_word', 'apple');
+```
+
+| 参数 | 类型 | 必须 | 说明 |
+|------|------|------|------|
+| payload | `string` | 是 | 要查询的单词 |
+
+> 适用场景：扩展中的文本内容包含生词时，允许用户点击查看释义。如果传入空字符串或未传参数，命令不会执行任何操作。
 
 ### 4.6 context.events — 事件监听
 
