@@ -434,6 +434,7 @@ declare const __EXTENSION_GLOBAL_NAME__: string
     const readingRoot = context.slots.get('reading-area')
     injectStyles(readingRoot, STAR_CSS, 'epic-star-styles')
 
+
     const starContainer = document.createElement('div')
     starContainer.style.cssText = 'position:absolute;inset:0;pointer-events:none;'
     readingRoot.appendChild(starContainer)

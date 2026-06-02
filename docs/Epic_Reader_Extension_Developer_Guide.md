@@ -269,6 +269,9 @@ context.commands.execute('previousPage');
 // Go to next page
 context.commands.execute('nextPage');
 
+// Go to a specific page
+context.commands.execute('goToPage', 4);
+
 // Look up a word definition
 context.commands.execute('lookup_word', 'apple');
 ```
@@ -298,6 +301,20 @@ The host provides the close button (top-right ✕), backdrop click-to-close, and
 |--------|------|---------|-------------|
 | `width` | `number` | `800` | Modal width in pixels |
 | `height` | `number` | `600` | Modal height in pixels |
+
+**goToPage behavior:**
+
+Navigates the reader to a specific page.
+
+```javascript
+context.commands.execute('goToPage', 4);
+```
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| payload | `number` | Yes | Target page index (0-based, even number) |
+
+> Boundary handling: the value is automatically aligned to an even number (rounded down) and clamped to the valid range [0, max page index]. Non-numeric values are silently ignored.
 
 **lookup_word behavior:**
 
