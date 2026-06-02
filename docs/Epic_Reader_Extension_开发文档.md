@@ -270,6 +270,9 @@ context.commands.execute('previousPage');
 // 翻到下一页
 context.commands.execute('nextPage');
 
+// 跳转到指定页
+context.commands.execute('goToPage', 4);
+
 // 查词释义
 context.commands.execute('lookup_word', 'apple');
 ```
@@ -299,6 +302,20 @@ context.commands.execute('lookup_word', 'apple');
 |------|------|--------|------|
 | `width` | `number` | `800` | 弹窗宽度（像素） |
 | `height` | `number` | `600` | 弹窗高度（像素） |
+
+**goToPage 说明：**
+
+跳转到指定页面。
+
+```javascript
+context.commands.execute('goToPage', 4);
+```
+
+| 参数 | 类型 | 必须 | 说明 |
+|------|------|------|------|
+| payload | `number` | 是 | 目标页面索引（从 0 开始的偶数） |
+
+> 边界处理：传入值会自动校正为偶数（向下取整），并 clamp 到有效范围 [0, 最大页索引]。传入非数字值时不执行任何操作。
 
 **lookup_word 说明：**
 
