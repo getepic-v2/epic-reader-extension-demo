@@ -28,6 +28,7 @@ Send an email or Slack message to your Epic contact (lihaitao6@getepic.com) with
 | GitHub Usernames | GitHub accounts that need fork access | `@alice`, `@bob` |
 | Technical Contact | Primary developer for technical communication | alice@acme.com |
 | Target Books | Book IDs you need access to (if known) | 49524, 49528 |
+| Rendering Mode | Whether you need Full Takeover Mode (reader skips rendering original page images; extension renders all page content and interactions). See [Developer Guide - Full Takeover Mode](./Epic_Reader_Extension_Developer_Guide.md#9-full-takeover-mode-custom-page-content) | Yes / No |
 
 ---
 
