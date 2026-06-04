@@ -706,7 +706,66 @@ build: {
 
 ---
 
-## 9. manifest.json Specification
+## 9. Full Takeover Mode (Custom Page Content)
+
+### 9.1 Overview
+
+By default, extensions render UI as an overlay on top of the original book page images. If you want to **fully replace the book page content** (rendering your own illustrations, text, and interactive elements), you can enable "Full Takeover Mode".
+
+When enabled, the reader will not render any original book page images, giving your extension a blank canvas to render on via the `reading-area` slot.
+
+### 9.2 How to Enable
+
+Full Takeover Mode is configured at the **plugin level** through the backend. Contact your Epic representative to enable it:
+
+```json
+{
+  "extensionConfig": {
+    "skipPageRender": true
+  }
+}
+```
+
+Once enabled, it applies to **all books** associated with the plugin. Users who are in the extension's rollout group will see blank pages (extension takes over rendering). Users not in the rollout group will still see the original book pages normally.
+
+> **To enable this mode, inform your Epic contact during onboarding or at any point during development.**
+
+### 9.3 Local Debugging
+
+You can enable Full Takeover Mode locally without backend configuration:
+
+```javascript
+// Enable blank pages (use together with epic_debug_plugin)
+localStorage.setItem('epic_debug_skip_page_render', '1')
+
+// Disable
+localStorage.removeItem('epic_debug_skip_page_render')
+```
+
+Recommended setup for local development:
+
+```javascript
+localStorage.setItem('epic_debug_plugin', 'http://localhost:8080/YourExtension-main.js')
+localStorage.setItem('epic_debug_skip_page_render', '1')
+```
+
+Refresh the page to take effect.
+
+### 9.4 Preserved System Pages
+
+When Full Takeover Mode is enabled, the following pages are **not affected** and are still rendered by the reader:
+
+| Page | Description |
+|------|-------------|
+| Book Intro Page | The reader's built-in intro page (book title, author, etc.) |
+| Completion Page | The post-reading completion animation |
+| Recommendations Page | Post-reading book recommendations |
+
+All book content pages (including cover and last page) are taken over by the extension.
+
+---
+
+## 10. manifest.json Specification
 
 Each extension must provide a `manifest.json` metadata file.
 
@@ -739,9 +798,9 @@ tencent-flashcard-extension      → TencentFlashcardExtension
 
 ---
 
-## 10. Delivery & Deployment
+## 11. Delivery & Deployment
 
-### 10.1 Deliverables Checklist
+### 11.1 Deliverables Checklist
 
 | Item | Required | Description |
 |------|----------|-------------|
@@ -749,7 +808,7 @@ tencent-flashcard-extension      → TencentFlashcardExtension
 | `manifest.json` | **Yes** | Extension metadata |
 | Static Assets | As needed | Large images, videos, etc. that need separate CDN deployment |
 
-### 10.2 Deployment Process
+### 11.2 Deployment Process
 
 ```
 Third-party submits source code
@@ -769,15 +828,15 @@ User opens book → Reader automatically loads extension
 
 Third-party developers **do not need** to understand our deployment process. After source code submission, we handle compilation, deployment, and release.
 
-### 10.3 Version Updates
+### 11.3 Version Updates
 
 Submit new version source code + update the `version` field in `manifest.json`. We recompile and redeploy. The process is transparent to users.
 
 ---
 
-## 11. Source Code Collaboration
+## 12. Source Code Collaboration
 
-### 11.1 Repository Structure
+### 12.1 Repository Structure
 
 We create an independent repository on GitHub for each team:
 
@@ -791,7 +850,7 @@ getepic-v2/
 
 Repository naming convention: `extension-{company}-{product}`
 
-### 11.2 Initial Repository Contents
+### 12.2 Initial Repository Contents
 
 The repository starts with only basic files, with no technology stack restrictions:
 
@@ -804,7 +863,7 @@ extension-acme-quiz/
 
 Third-party teams fork the repo and initialize their own project (Vue / React / vanilla JS — any choice).
 
-### 11.3 Collaboration Model (Fork + PR)
+### 12.3 Collaboration Model (Fork + PR)
 
 ```
 1. We create the repository with pre-filled manifest.json
@@ -826,7 +885,7 @@ Third-party teams fork the repo and initialize their own project (Vue / React / 
 - All changes go through PR review before merging
 - Version updates follow the same PR process
 
-### 11.4 Branch Convention (Recommended)
+### 12.4 Branch Convention (Recommended)
 
 | Branch | Purpose |
 |--------|---------|

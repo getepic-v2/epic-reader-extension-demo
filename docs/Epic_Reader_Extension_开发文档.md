@@ -708,7 +708,66 @@ build: {
 
 ---
 
-## 九、manifest.json 规范
+## 九、全接管模式（自定义书页内容）
+
+### 9.1 概述
+
+默认情况下，扩展的 UI 以覆盖层形式叠加在原始书页图片之上。如果你希望**完全替换书页内容**（自己渲染页面插画、文字和互动元素），可以启用「全接管模式」。
+
+启用后，阅读器不会渲染原始书页图片，扩展通过 `reading-area` slot 全权负责每一页的内容呈现。
+
+### 9.2 启用方式
+
+全接管模式通过后端配置启用。联系 Epic 对接人为目标书籍设置：
+
+```json
+{
+  "extensionConfig": {
+    "skipPageRender": true
+  }
+}
+```
+
+该配置为**插件级别**，一旦启用，该插件关联的所有书籍均生效。命中扩展灰度的用户打开书时，所有书页图片不会渲染，扩展获得空白画布。未命中灰度的用户仍然看到原始书页，正常阅读。
+
+> **如需启用此模式，请在入驻时或开发过程中告知 Epic 对接人。**
+
+### 9.3 本地调试
+
+无需等待后端配置，可在浏览器控制台启用本地调试：
+
+```javascript
+// 启用空白页面（配合 epic_debug_plugin 使用）
+localStorage.setItem('epic_debug_skip_page_render', '1')
+
+// 关闭
+localStorage.removeItem('epic_debug_skip_page_render')
+```
+
+建议同时设置扩展调试地址：
+
+```javascript
+localStorage.setItem('epic_debug_plugin', 'http://localhost:8080/YourExtension-main.js')
+localStorage.setItem('epic_debug_skip_page_render', '1')
+```
+
+刷新页面后生效。
+
+### 9.4 保留的系统页面
+
+启用全接管模式后，以下页面**不受影响**，仍由阅读器渲染：
+
+| 页面 | 说明 |
+|------|------|
+| 书籍介绍页 | 阅读器自带的第一屏左侧页面（书名、作者等） |
+| 完成页 | 读完后的完成动画页面 |
+| 推荐页 | 读完后的推荐书籍页面 |
+
+所有书页内容（包括封面和尾页）由扩展接管渲染。
+
+---
+
+## 十、manifest.json 规范
 
 每个扩展需要提供一份 `manifest.json` 元数据文件。
 
@@ -741,9 +800,9 @@ tencent-flashcard-extension      → TencentFlashcardExtension
 
 ---
 
-## 十、交付与上线
+## 十一、交付与上线
 
-### 10.1 交付物清单
+### 11.1 交付物清单
 
 | 文件 | 必须 | 说明 |
 |------|------|------|
@@ -751,7 +810,7 @@ tencent-flashcard-extension      → TencentFlashcardExtension
 | `manifest.json` | **是** | 扩展元数据 |
 | 静态资源 | 视情况 | 大图片、视频等需要单独部署到 CDN 的资源 |
 
-### 10.2 上线流程
+### 11.2 上线流程
 
 ```
 第三方提交源码
@@ -771,15 +830,15 @@ tencent-flashcard-extension      → TencentFlashcardExtension
 
 第三方**无需**了解我们的部署流程。源码提交后，我们统一编译、部署、上线。
 
-### 10.3 版本更新
+### 11.3 版本更新
 
 提交新版本源码 + 更新 `manifest.json` 中的 `version` 字段。我们重新编译部署，对用户透明。
 
 ---
 
-## 十一、源码协作流程
+## 十二、源码协作流程
 
-### 11.1 仓库结构
+### 12.1 仓库结构
 
 我们会在 GitHub 上为每个团队创建一个独立仓库：
 
@@ -793,7 +852,7 @@ getepic-v2/
 
 仓库命名规范：`extension-{公司名}-{产品名}`
 
-### 11.2 初始仓库内容
+### 12.2 初始仓库内容
 
 仓库初始只包含基础文件，不限定技术栈：
 
@@ -806,7 +865,7 @@ extension-acme-quiz/
 
 第三方 fork 后自行初始化项目（Vue / React / 原生 JS 均可）。
 
-### 11.3 协作方式（Fork + PR）
+### 12.3 协作方式（Fork + PR）
 
 ```
 1. 我们创建仓库，预填 manifest.json
@@ -828,7 +887,7 @@ extension-acme-quiz/
 - 所有改动都经过 PR review 才能合并
 - 版本更新同样通过 PR 提交
 
-### 11.4 分支规范（建议）
+### 12.4 分支规范（建议）
 
 | 分支 | 用途 |
 |------|------|
