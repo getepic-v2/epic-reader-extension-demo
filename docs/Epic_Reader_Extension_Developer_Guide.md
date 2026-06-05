@@ -211,6 +211,8 @@ root.appendChild(style);
 | `getCurrentPage()` | `number` | Current page number (starts from 0) |
 | `getLabsData()` | `string \| null` | Interactive data bound to the book (raw format, parsed by the extension) |
 | `getFlipBookRect()` | `object \| null` | Exact position and dimensions of the book page on screen |
+| `getPageAudioUrl(pageIndex)` | `string` | Audio CDN URL for the specified page (empty string if no audio) |
+| `getWordTimingData(pageIndex)` | `Promise<object \| null>` | Word timing data for the specified page (async) |
 
 **getBookData() common fields:**
 
@@ -247,6 +249,38 @@ root.appendChild(style);
 Returns the raw interactive data bound to the book. The data format is defined by the third-party team in coordination with our backend. The host only passes through the data without parsing or processing. Extensions parse the data internally.
 
 > To query or upload interactive data (labData), use the Open API. See [Open API - Book Data Interface](./open-api-book.md).
+
+**getPageAudioUrl(pageIndex) note:**
+
+Returns the Read to Me audio CDN URL for the specified page. Use the page index from `getCurrentPage()`. Only available for books with Read to Me enabled; returns an empty string otherwise.
+
+```javascript
+var audioUrl = context.data.getPageAudioUrl(context.data.getCurrentPage());
+if (audioUrl) {
+  // Use the audio URL for playback
+}
+```
+
+**getWordTimingData(pageIndex) note:**
+
+Asynchronously returns word timing data for the specified page. Use the page index from `getCurrentPage()`. Returns a Promise that resolves to the word data object, or `null` if unavailable.
+
+```javascript
+var wordData = await context.data.getWordTimingData(context.data.getCurrentPage());
+// wordData.word_data = [{ text, time, duration, bbox, coords, ... }, ...]
+```
+
+Word data fields:
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `text` | `string` | Word text |
+| `time` | `string` | Start time in audio (seconds) |
+| `duration` | `string` | Duration of pronunciation (seconds) |
+| `bbox` | `object` | Bounding box (percentage coordinates): `{ x1, y1, x2, y2, width, height }` |
+| `coords` | `number[]` | Pixel coordinates: `[x1, y1, x2, y2]` |
+
+> Use case: Extensions implementing read-aloud highlighting, follow-along reading, or similar features.
 
 ### 4.5 context.commands — Execute Commands
 

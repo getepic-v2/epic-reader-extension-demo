@@ -212,6 +212,8 @@ root.appendChild(style);
 | `getCurrentPage()` | `number` | 当前页码（从 0 开始） |
 | `getLabsData()` | `string \| null` | 书籍绑定的互动数据（原始格式，由第三方自行解析） |
 | `getFlipBookRect()` | `object \| null` | 书页在屏幕上的精确位置和尺寸 |
+| `getPageAudioUrl(pageIndex)` | `string` | 指定页的朗读音频 CDN 地址（无音频时返回空字符串） |
+| `getWordTimingData(pageIndex)` | `Promise<object \| null>` | 指定页的单词时间轴数据（异步） |
 
 **getBookData() 常用字段：**
 
@@ -248,6 +250,38 @@ root.appendChild(style);
 返回书籍绑定的互动原始数据。数据格式由第三方团队与我们后端协商定义，宿主只做透传，不解析不处理。第三方在扩展内自行解析。
 
 > 互动数据（labData）的查询和上传通过 Open API 完成，详见 [Open API - Book Data Interface](./open-api-book.md)。
+
+**getPageAudioUrl(pageIndex) 说明：**
+
+返回指定页面的朗读音频 CDN 地址。`pageIndex` 使用 `getCurrentPage()` 返回的页码。仅对启用了 Read to Me 功能的书籍有效，未启用时返回空字符串。
+
+```javascript
+var audioUrl = context.data.getPageAudioUrl(context.data.getCurrentPage());
+if (audioUrl) {
+  // 使用音频地址播放
+}
+```
+
+**getWordTimingData(pageIndex) 说明：**
+
+异步返回指定页面的单词时间轴数据。`pageIndex` 使用 `getCurrentPage()` 返回的页码。返回 Promise，resolve 后为该页的单词数据对象，无数据时为 `null`。
+
+```javascript
+var wordData = await context.data.getWordTimingData(context.data.getCurrentPage());
+// wordData.word_data = [{ text, time, duration, bbox, coords, ... }, ...]
+```
+
+单词数据字段：
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| `text` | `string` | 单词文本 |
+| `time` | `string` | 音频中开始朗读的时间（秒） |
+| `duration` | `string` | 朗读持续时长（秒） |
+| `bbox` | `object` | 单词边界框（百分比坐标）：`{ x1, y1, x2, y2, width, height }` |
+| `coords` | `number[]` | 单词像素坐标：`[x1, y1, x2, y2]` |
+
+> 适用场景：扩展自行实现朗读高亮、跟读互动等功能。
 
 ### 4.5 context.commands — 执行命令
 
