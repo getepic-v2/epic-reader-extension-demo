@@ -1,7 +1,7 @@
 # Epic Reader Extension Developer Guide
 
-> Version: 1.0.0  
-> Last Updated: 2026-04-27
+> Version: 1.1.0  
+> Last Updated: 2026-06-12
 
 > **New partner?** Please read the [Onboarding Guide](./Onboarding_Guide.md) first to request your repository, API credentials, and test account.
 
@@ -42,8 +42,9 @@ Host calls extension.activate(context)
     │
     ├── Extension gets rendering containers via context.slots
     ├── Extension reads book and interaction data via context.data
-    ├── Extension listens to page-turn events via context.events
+    ├── Extension listens to page-turn and RTM setting events via context.events
     ├── Extension executes actions like opening a drawer or modal via context.commands
+    ├── Extension takes over host controls (e.g. RTM play button) via context.delegations
     │
     ▼
 User reads and interacts
@@ -213,6 +214,9 @@ root.appendChild(style);
 | `getFlipBookRect()` | `object \| null` | Exact position and dimensions of the book page on screen |
 | `getPageAudioUrl(pageIndex)` | `string` | Audio CDN URL for the specified page (empty string if no audio) |
 | `getWordTimingData(pageIndex)` | `Promise<object \| null>` | Word timing data for the specified page (async) |
+| `getRtmVolume()` | `number` | Current volume level (0–100) |
+| `getRtmSpeed()` | `number` | Current playback speed (0.5–2.0) |
+| `getRtmHighlight()` | `boolean` | Whether word highlighting is currently enabled |
 
 **getBookData() common fields:**
 
@@ -281,6 +285,22 @@ Word data fields:
 | `coords` | `number[]` | Pixel coordinates: `[x1, y1, x2, y2]` |
 
 > Use case: Extensions implementing read-aloud highlighting, follow-along reading, or similar features.
+
+**getRtmVolume() / getRtmSpeed() / getRtmHighlight() notes:**
+
+These three methods are used by extensions that implement Read to Me functionality, to read the user's current toolbar settings as initial values. When settings change, the extension is notified via events (see `rtmVolumeChange`, `rtmSpeedChange`, `rtmHighlightChange`).
+
+```javascript
+// Read initial values
+var volume    = context.data.getRtmVolume();      // e.g. 80
+var speed     = context.data.getRtmSpeed();       // e.g. 1.0
+var highlight = context.data.getRtmHighlight();   // e.g. true
+
+audio.volume = volume / 100;
+audio.playbackRate = speed;
+```
+
+> These three methods are only needed when the extension implements Read to Me functionality.
 
 ### 4.5 context.commands — Execute Commands
 
@@ -384,6 +404,122 @@ unsubscribe();
 | `pageTurnStart` | none | Page turn animation started | Immediately clear current page UI |
 | `drawerStateChange` | `{ mounted: boolean }` | Drawer opened/closed | Render drawer content when `mounted: true` |
 | `modalStateChange` | `{ mounted: boolean }` | Modal opened/closed | Render modal content when `mounted: true` |
+| `rtmVolumeChange` | `number` | User adjusts the volume slider | Update `audio.volume` |
+| `rtmSpeedChange` | `number` | User changes the playback speed | Update `audio.playbackRate` |
+| `rtmHighlightChange` | `boolean` | User toggles the word highlight switch | Enable/disable word highlighting |
+
+### 4.7 context.delegations — Taking Over Host Controls
+
+The delegation mechanism allows an extension to claim ownership of a host UI control. Once taken over, clicks on that control are routed to the extension; the host's native behavior is bypassed.
+
+Currently supported controls:
+
+| ID | Description |
+|----|-------------|
+| `'rtm-playback'` | The Read to Me play/pause button in the toolbar |
+
+**takeOver(id, config) — claim a control**
+
+```javascript
+var state = { playing: false };
+
+var registration = context.delegations.takeOver('rtm-playback', {
+  state: state,
+  onToggle: function() {
+    // Called when the user clicks the play/pause button
+    if (state.playing) {
+      audio.pause();
+      registration.setState({ playing: false });
+    } else {
+      audio.play();
+      registration.setState({ playing: true });
+    }
+  }
+});
+```
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `id` | `string` | Control ID. Currently only `'rtm-playback'` is supported |
+| `config.state` | `object` | State object. The host reads `state.playing` to decide whether to show the play or pause icon |
+| `config.onToggle` | `function` | Called when the button is clicked |
+
+Returns a `DelegationRegistration`:
+
+| Method | Description |
+|--------|-------------|
+| `setState(partial)` | Updates the state and triggers the host button to re-render. **Must use this method** — directly assigning `state.playing = true` will not update the button icon |
+| `release()` | Releases the delegation; the host reverts to its native RTM behavior |
+
+> The delegation is automatically cleared when the extension deactivates, but it is recommended to call `release()` explicitly in your cleanup function.
+
+**Complete RTM extension implementation:**
+
+```javascript
+activate: function(context) {
+  var audio = new Audio();
+
+  // 1. Read initial toolbar settings
+  audio.volume = context.data.getRtmVolume() / 100;
+  audio.playbackRate = context.data.getRtmSpeed();
+  var highlightEnabled = context.data.getRtmHighlight();
+
+  // 2. Take over the play button
+  var state = { playing: false };
+  var reg = context.delegations.takeOver('rtm-playback', {
+    state: state,
+    onToggle: function() {
+      if (state.playing) {
+        audio.pause();
+        reg.setState({ playing: false });
+      } else {
+        loadAndPlay(context.data.getCurrentPage());
+      }
+    }
+  });
+
+  async function loadAndPlay(pageIndex) {
+    audio.src = context.data.getPageAudioUrl(pageIndex);
+    var timingData = await context.data.getWordTimingData(pageIndex);
+    // Use timingData to initialize word highlighting...
+    audio.play();
+    reg.setState({ playing: true });
+  }
+
+  audio.onended = function() {
+    reg.setState({ playing: false });
+  };
+
+  // 3. Listen for toolbar setting changes
+  var unsubVolume = context.events.on('rtmVolumeChange', function(v) {
+    audio.volume = v / 100;
+  });
+  var unsubSpeed = context.events.on('rtmSpeedChange', function(v) {
+    audio.playbackRate = v;
+  });
+  var unsubHighlight = context.events.on('rtmHighlightChange', function(v) {
+    highlightEnabled = v;
+    // Update highlight display...
+  });
+
+  // 4. Stop playback on page turn
+  var unsubPage = context.events.on('pageChange', function() {
+    audio.pause();
+    audio.src = '';
+    reg.setState({ playing: false });
+  });
+
+  // 5. Cleanup
+  return function() {
+    audio.pause();
+    reg.release();
+    unsubVolume();
+    unsubSpeed();
+    unsubHighlight();
+    unsubPage();
+  };
+}
+```
 
 ---
 
@@ -408,14 +544,27 @@ npm install -D @getepic-v2/reader-extension-types
 **Usage:**
 
 ```typescript
-import type { ExtensionContext, Extension } from '@getepic-v2/reader-extension-types'
+import type {
+  ExtensionContext,
+  Extension,
+  DelegationRegistration,
+  RtmPlaybackState,
+} from '@getepic-v2/reader-extension-types'
 
 const extension: Extension = {
   activate(context: ExtensionContext) {
     const root = context.slots.get('reading-area')
     const page = context.data.getCurrentPage()
-    // ...
-    return () => { /* cleanup */ }
+
+    // RTM delegation example (with full type inference)
+    const state: RtmPlaybackState = { playing: false }
+    const reg: DelegationRegistration<RtmPlaybackState> =
+      context.delegations.takeOver('rtm-playback', {
+        state,
+        onToggle: () => { /* ... */ },
+      })
+
+    return () => { reg.release() }
   }
 }
 ```

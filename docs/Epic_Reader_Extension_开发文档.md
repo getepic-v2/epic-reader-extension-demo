@@ -1,7 +1,7 @@
 # Epic Reader Extension 第三方开发文档
 
-> 版本：1.0.0  
-> 更新日期：2026-04-27
+> 版本：1.1.0  
+> 更新日期：2026-06-12
 
 > **首次合作？** 请先阅读[合作入驻指南](./合作入驻指南.md)，完成仓库、API 凭证、测试账号等申请。
 
@@ -42,8 +42,9 @@ Epic Reader Extension 是 Epic 阅读器提供的扩展机制，允许第三方�
     │
     ├── 扩展通过 context.slots 获取渲染容器
     ├── 扩展通过 context.data 读取书籍和互动数据
-    ├── 扩展通过 context.events 监听翻页等事件
+    ├── 扩展通过 context.events 监听翻页、RTM 设置变更等事件
     ├── 扩展通过 context.commands 执行打开抽屉、弹窗等操作
+    ├── 扩展通过 context.delegations 接管宿主控件（如 RTM 播放按钮）
     │
     ▼
 用户阅读、交互
@@ -155,7 +156,7 @@ localStorage.setItem('epic_debug_plugin', 'http://localhost:8080/AcmeQuizExtensi
 
 ## 四、Context API 完整参考
 
-`activate(context)` 中的 `context` 对象包含以下四类接口：
+`activate(context)` 中的 `context` 对象包含以下接口：
 
 ### 4.1 context.version — API 版本
 
@@ -214,6 +215,9 @@ root.appendChild(style);
 | `getFlipBookRect()` | `object \| null` | 书页在屏幕上的精确位置和尺寸 |
 | `getPageAudioUrl(pageIndex)` | `string` | 指定页的朗读音频 CDN 地址（无音频时返回空字符串） |
 | `getWordTimingData(pageIndex)` | `Promise<object \| null>` | 指定页的单词时间轴数据（异步） |
+| `getRtmVolume()` | `number` | 当前音量值（0–100） |
+| `getRtmSpeed()` | `number` | 当前播放速度（0.5–2.0） |
+| `getRtmHighlight()` | `boolean` | 当前是否启用单词高亮 |
 
 **getBookData() 常用字段：**
 
@@ -282,6 +286,22 @@ var wordData = await context.data.getWordTimingData(context.data.getCurrentPage(
 | `coords` | `number[]` | 单词像素坐标：`[x1, y1, x2, y2]` |
 
 > 适用场景：扩展自行实现朗读高亮、跟读互动等功能。
+
+**getRtmVolume() / getRtmSpeed() / getRtmHighlight() 说明：**
+
+这三个方法在扩展实现 Read to Me 功能时使用，用于读取用户在工具栏上的当前设置初始值。设置变更时通过事件通知（见 `rtmVolumeChange`、`rtmSpeedChange`、`rtmHighlightChange`）。
+
+```javascript
+// 读取初始值
+var volume = context.data.getRtmVolume();      // 例如 80
+var speed  = context.data.getRtmSpeed();       // 例如 1.0
+var highlight = context.data.getRtmHighlight(); // 例如 true
+
+audio.volume = volume / 100;
+audio.playbackRate = speed;
+```
+
+> 只有在扩展实现了 Read to Me 功能时才需要使用这三个接口。
 
 ### 4.5 context.commands — 执行命令
 
@@ -385,6 +405,122 @@ unsubscribe();
 | `pageTurnStart` | 无 | 翻页动画开始 | 立即清除当前页 UI |
 | `drawerStateChange` | `{ mounted: boolean }` | 抽屉打开/关闭 | `mounted: true` 时渲染抽屉内容 |
 | `modalStateChange` | `{ mounted: boolean }` | 弹窗打开/关闭 | `mounted: true` 时渲染弹窗内容 |
+| `rtmVolumeChange` | `number` | 用户调整音量滑块 | 更新 `audio.volume` |
+| `rtmSpeedChange` | `number` | 用户切换播放速度 | 更新 `audio.playbackRate` |
+| `rtmHighlightChange` | `boolean` | 用户切换单词高亮开关 | 启用/停止高亮逻辑 |
+
+### 4.7 context.delegations — 接管宿主控件
+
+Delegation（接管）机制允许扩展声明对宿主 UI 控件的接管。被接管的控件点击后由扩展处理，宿主不再执行原有逻辑。
+
+目前支持接管的控件：
+
+| ID | 说明 |
+|----|------|
+| `'rtm-playback'` | 工具栏上的 Read to Me 播放/暂停按钮 |
+
+**takeOver(id, config) — 接管控件**
+
+```javascript
+var state = { playing: false };
+
+var registration = context.delegations.takeOver('rtm-playback', {
+  state: state,
+  onToggle: function() {
+    // 用户点击播放/暂停按钮时触发
+    if (state.playing) {
+      audio.pause();
+      registration.setState({ playing: false });
+    } else {
+      audio.play();
+      registration.setState({ playing: true });
+    }
+  }
+});
+```
+
+| 参数 | 类型 | 说明 |
+|------|------|------|
+| `id` | `string` | 控件 ID，目前仅支持 `'rtm-playback'` |
+| `config.state` | `object` | 状态对象，宿主通过 `state.playing` 决定按钮显示播放还是暂停图标 |
+| `config.onToggle` | `function` | 按钮点击时的回调 |
+
+返回 `DelegationRegistration`：
+
+| 方法 | 说明 |
+|------|------|
+| `setState(partial)` | 更新状态并触发宿主按钮 UI 刷新。**必须使用此方法**，直接赋值 `state.playing = true` 不会更新按钮图标 |
+| `release()` | 释放接管，宿主恢复原生 RTM 逻辑 |
+
+> 扩展 deactivate 时接管会自动清除，但建议在清理函数中显式调用 `release()`。
+
+**完整的 RTM 扩展实现流程：**
+
+```javascript
+activate: function(context) {
+  var audio = new Audio();
+
+  // 1. 读取工具栏当前设置
+  audio.volume = context.data.getRtmVolume() / 100;
+  audio.playbackRate = context.data.getRtmSpeed();
+  var highlightEnabled = context.data.getRtmHighlight();
+
+  // 2. 接管播放按钮
+  var state = { playing: false };
+  var reg = context.delegations.takeOver('rtm-playback', {
+    state: state,
+    onToggle: function() {
+      if (state.playing) {
+        audio.pause();
+        reg.setState({ playing: false });
+      } else {
+        loadAndPlay(context.data.getCurrentPage());
+      }
+    }
+  });
+
+  async function loadAndPlay(pageIndex) {
+    audio.src = context.data.getPageAudioUrl(pageIndex);
+    var timingData = await context.data.getWordTimingData(pageIndex);
+    // 用 timingData 初始化高亮逻辑...
+    audio.play();
+    reg.setState({ playing: true });
+  }
+
+  audio.onended = function() {
+    reg.setState({ playing: false });
+  };
+
+  // 3. 监听工具栏设置变更
+  var unsubVolume = context.events.on('rtmVolumeChange', function(v) {
+    audio.volume = v / 100;
+  });
+  var unsubSpeed = context.events.on('rtmSpeedChange', function(v) {
+    audio.playbackRate = v;
+  });
+  var unsubHighlight = context.events.on('rtmHighlightChange', function(v) {
+    highlightEnabled = v;
+    // 更新高亮显示...
+  });
+
+  // 4. 翻页时停止当前页播放
+  var unsubPage = context.events.on('pageChange', function() {
+    audio.pause();
+    audio.src = '';
+    reg.setState({ playing: false });
+  });
+
+  // 5. 清理
+  return function() {
+    audio.pause();
+    reg.release();
+    unsubVolume();
+    unsubSpeed();
+    unsubHighlight();
+    unsubPage();
+  };
+}
+```
 
 ---
 
@@ -409,14 +545,27 @@ npm install -D @getepic-v2/reader-extension-types
 **使用：**
 
 ```typescript
-import type { ExtensionContext, Extension } from '@getepic-v2/reader-extension-types'
+import type {
+  ExtensionContext,
+  Extension,
+  DelegationRegistration,
+  RtmPlaybackState,
+} from '@getepic-v2/reader-extension-types'
 
 const extension: Extension = {
   activate(context: ExtensionContext) {
     const root = context.slots.get('reading-area')
     const page = context.data.getCurrentPage()
-    // ...
-    return () => { /* cleanup */ }
+
+    // RTM delegation 示例（有完整类型推断）
+    const state: RtmPlaybackState = { playing: false }
+    const reg: DelegationRegistration<RtmPlaybackState> =
+      context.delegations.takeOver('rtm-playback', {
+        state,
+        onToggle: () => { /* ... */ },
+      })
+
+    return () => { reg.release() }
   }
 }
 ```
