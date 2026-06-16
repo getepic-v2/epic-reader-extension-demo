@@ -391,6 +391,8 @@ context.commands.execute('lookup_word', 'apple');
 // 订阅事件，返回取消订阅函数
 var unsubscribe = context.events.on('pageChange', function(payload) {
   console.log('翻到第', payload.pageIndex, '页');
+  console.log('来源：', payload.source);   // 'arrow' | 'slider' | 'rtm' | 'programmatic'
+  console.log('方向：', payload.direction); // 1（前进）| -1（后退）| 0（原地）
 });
 
 // 取消订阅
@@ -401,13 +403,23 @@ unsubscribe();
 
 | 事件名 | payload | 触发时机 | 建议操作 |
 |--------|---------|---------|---------|
-| `pageChange` | `{ pageIndex: number }` | 翻页完成 | 更新互动内容 |
+| `pageChange` | `{ pageIndex: number, source: PageChangeSource, direction: 1 \| -1 \| 0 }` | 翻页完成 | 更新互动内容 |
 | `pageTurnStart` | 无 | 翻页动画开始 | 立即清除当前页 UI |
 | `drawerStateChange` | `{ mounted: boolean }` | 抽屉打开/关闭 | `mounted: true` 时渲染抽屉内容 |
 | `modalStateChange` | `{ mounted: boolean }` | 弹窗打开/关闭 | `mounted: true` 时渲染弹窗内容 |
 | `rtmVolumeChange` | `number` | 用户调整音量滑块 | 更新 `audio.volume` |
 | `rtmSpeedChange` | `number` | 用户切换播放速度 | 更新 `audio.playbackRate` |
 | `rtmHighlightChange` | `boolean` | 用户切换单词高亮开关 | 启用/停止高亮逻辑 |
+
+**`pageChange` payload 字段说明：**
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| `pageIndex` | `number` | 翻页后的页码 |
+| `source` | `'arrow' \| 'slider' \| 'rtm' \| 'programmatic'` | 触发翻页的来源：箭头按钮、进度条拖动、RTM 自动翻页、代码调用 |
+| `direction` | `1 \| -1 \| 0` | 翻页方向：`1` 前进，`-1` 后退，`0` 原地跳转 |
+
+> `source` 字段适用场景：对不同触发来源应用不同动画策略。例如，slider 快速拖动时可以跳过复杂动画，只在最终页播放完整效果。
 
 ### 4.7 context.delegations — 接管宿主控件
 

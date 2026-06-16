@@ -267,7 +267,10 @@ thinkacademy-star-extension/
       // --- 事件监听 ---
 
       // 翻页完成：更新星星
-      var unsubPage = context.events.on('pageChange', function() {
+      var unsubPage = context.events.on('pageChange', function(payload) {
+        // payload.pageIndex   — 翻页后的页码
+        // payload.source      — 'arrow' | 'slider' | 'rtm' | 'programmatic'
+        // payload.direction   — 1（前进）| -1（后退）| 0（原地）
         selectedStar = null;
         renderStars();
       });
@@ -391,8 +394,9 @@ function getPageStars(context: ExtensionContext): Star[] {
     app.mount(container)
 
     // 翻页更新
-    const unsubPage = context.events.on('pageChange', () => {
-      state.page = context.data.getCurrentPage()
+    // payload: { pageIndex, source: 'arrow'|'slider'|'rtm'|'programmatic', direction: 1|-1|0 }
+    const unsubPage = context.events.on('pageChange', (payload: any) => {
+      state.page = payload?.pageIndex ?? context.data.getCurrentPage()
       state.stars = getPageStars(context)
       state.selectedStar = null
     })

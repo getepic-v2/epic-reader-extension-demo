@@ -390,6 +390,8 @@ context.commands.execute('lookup_word', 'apple');
 // Subscribe to an event, returns an unsubscribe function
 var unsubscribe = context.events.on('pageChange', function(payload) {
   console.log('Turned to page', payload.pageIndex);
+  console.log('Source:', payload.source);    // 'arrow' | 'slider' | 'rtm' | 'programmatic'
+  console.log('Direction:', payload.direction); // 1 (forward) | -1 (backward) | 0 (same page)
 });
 
 // Unsubscribe
@@ -400,13 +402,23 @@ unsubscribe();
 
 | Event Name | Payload | Trigger | Recommended Action |
 |------------|---------|---------|-------------------|
-| `pageChange` | `{ pageIndex: number }` | Page turn completed | Update interactive content |
+| `pageChange` | `{ pageIndex: number, source: PageChangeSource, direction: 1 \| -1 \| 0 }` | Page turn completed | Update interactive content |
 | `pageTurnStart` | none | Page turn animation started | Immediately clear current page UI |
 | `drawerStateChange` | `{ mounted: boolean }` | Drawer opened/closed | Render drawer content when `mounted: true` |
 | `modalStateChange` | `{ mounted: boolean }` | Modal opened/closed | Render modal content when `mounted: true` |
 | `rtmVolumeChange` | `number` | User adjusts the volume slider | Update `audio.volume` |
 | `rtmSpeedChange` | `number` | User changes the playback speed | Update `audio.playbackRate` |
 | `rtmHighlightChange` | `boolean` | User toggles the word highlight switch | Enable/disable word highlighting |
+
+**`pageChange` payload fields:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `pageIndex` | `number` | Page index after the turn |
+| `source` | `'arrow' \| 'slider' \| 'rtm' \| 'programmatic'` | What triggered the page turn: arrow button, progress bar scrub, RTM auto-turn, or programmatic call |
+| `direction` | `1 \| -1 \| 0` | Turn direction: `1` forward, `-1` backward, `0` same-page jump |
+
+> The `source` field lets you apply different strategies per navigation type. For example, skip heavy animations during rapid slider scrubbing and only play the full transition on the final settled page.
 
 ### 4.7 context.delegations — Taking Over Host Controls
 

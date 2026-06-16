@@ -267,7 +267,10 @@ Below is a framework-free JavaScript implementation:
       // --- Events ---
 
       // After page change: refresh stars
-      var unsubPage = context.events.on('pageChange', function() {
+      var unsubPage = context.events.on('pageChange', function(payload) {
+        // payload.pageIndex   — new page index
+        // payload.source      — 'arrow' | 'slider' | 'rtm' | 'programmatic'
+        // payload.direction   — 1 (forward) | -1 (backward) | 0 (same page)
         selectedStar = null;
         renderStars();
       });
@@ -391,8 +394,9 @@ function getPageStars(context: ExtensionContext): Star[] {
     app.mount(container)
 
     // Page changes
-    const unsubPage = context.events.on(‘pageChange’, () => {
-      state.page = context.data.getCurrentPage()
+    // payload: { pageIndex, source: ‘arrow’|’slider’|’rtm’|’programmatic’, direction: 1|-1|0 }
+    const unsubPage = context.events.on(‘pageChange’, (payload: any) => {
+      state.page = payload?.pageIndex ?? context.data.getCurrentPage()
       state.stars = getPageStars(context)
       state.selectedStar = null
     })
