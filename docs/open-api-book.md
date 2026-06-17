@@ -4,7 +4,12 @@
 
 This API allows authorized third-party partners to retrieve book detail data and upload interactive book data (labData).
 
-**Base URL:** `https://{domain}/openapi/book.php`
+**Base URL:**
+
+| Environment | Base URL |
+|-------------|----------|
+| QA | `https://qa-new.getepic.dev/openapi/book.php` |
+| Production | `https://api-web.getepic.com/openapi/book.php` |
 
 ---
 
@@ -88,7 +93,7 @@ TIMESTAMP=$(date +%s)
 BODY=""
 SIGNATURE=$(echo -n "${BODY}${TIMESTAMP}" | openssl dgst -sha256 -hmac "your_api_secret" | awk '{print $2}')
 
-curl -X GET "https://{domain}/openapi/book.php?action=getFullData&book_id=5119" \
+curl -X GET "https://qa-new.getepic.dev/openapi/book.php?action=getFullData&book_id=5119" \
   -H "X-Api-Key: your_api_key" \
   -H "X-Signature: ${SIGNATURE}" \
   -H "X-Timestamp: ${TIMESTAMP}"
@@ -200,7 +205,7 @@ TIMESTAMP=$(date +%s)
 BODY='{"book_id":49524,"labdata":"<labData>...</labData>"}'
 SIGNATURE=$(echo -n "${BODY}${TIMESTAMP}" | openssl dgst -sha256 -hmac "your_api_secret" | awk '{print $2}')
 
-curl -X POST "https://{domain}/openapi/book.php?action=upsertLabData" \
+curl -X POST "https://qa-new.getepic.dev/openapi/book.php?action=upsertLabData" \
   -H "X-Api-Key: your_api_key" \
   -H "X-Signature: ${SIGNATURE}" \
   -H "X-Timestamp: ${TIMESTAMP}" \
