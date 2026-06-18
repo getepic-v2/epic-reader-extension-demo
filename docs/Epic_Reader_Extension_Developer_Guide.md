@@ -409,6 +409,7 @@ unsubscribe();
 | `rtmVolumeChange` | `number` | User adjusts the volume slider | Update `audio.volume` |
 | `rtmSpeedChange` | `number` | User changes the playback speed | Update `audio.playbackRate` |
 | `rtmHighlightChange` | `boolean` | User toggles the word highlight switch | Enable/disable word highlighting |
+| `wordDefinitionClose` | none | Word definition overlay closed | Resume audio playback etc. |
 
 **`pageChange` payload fields:**
 

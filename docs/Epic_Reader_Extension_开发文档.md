@@ -410,6 +410,7 @@ unsubscribe();
 | `rtmVolumeChange` | `number` | 用户调整音量滑块 | 更新 `audio.volume` |
 | `rtmSpeedChange` | `number` | 用户切换播放速度 | 更新 `audio.playbackRate` |
 | `rtmHighlightChange` | `boolean` | 用户切换单词高亮开关 | 启用/停止高亮逻辑 |
+| `wordDefinitionClose` | 无 | 查词释义弹窗关闭 | 恢复音频播放等 |
 
 **`pageChange` payload 字段说明：**
 
