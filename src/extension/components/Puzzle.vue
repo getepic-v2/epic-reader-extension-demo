@@ -1,9 +1,14 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
-import type { StarContent } from '../types'
+import type { StarContent, DrawerCompleteEvent } from '../types'
+import type { DrawerStore } from '../composables/useDrawerStore'
 
 const props = defineProps<{
-  content: StarContent
+  content?: StarContent
+  store?: DrawerStore
+}>()
+const emit = defineEmits<{
+  (e: 'complete', event: DrawerCompleteEvent): void
 }>()
 
 const GRID_SIZE = 3
@@ -13,6 +18,7 @@ const isComplete = ref(false)
 const showPreview = ref(true)
 const previewCountdown = ref(3)
 const imageLoaded = ref(false)
+let replayCount = 0
 
 // Generate shuffled piece order
 function shuffle(arr: number[]): number[] {
@@ -46,10 +52,17 @@ function onDragOver(e: DragEvent) {
 }
 
 function checkComplete() {
+  const wasComplete = isComplete.value
   isComplete.value = pieces.value.every((v, i) => v === i)
+  if (isComplete.value && !wasComplete) {
+    props.store?.updateCloseMetrics({ isStarComplete: true })
+    emit('complete', { type: 'puzzle', data: { isComplete: true } })
+  }
 }
 
 function playAgain() {
+  replayCount += 1
+  props.store?.updateCloseMetrics({ playCount: replayCount })
   pieces.value = shuffle(correctOrder)
   isComplete.value = false
 }
@@ -59,7 +72,7 @@ function startPuzzle() {
 }
 
 onMounted(() => {
-  if (!props.content.imageUrl) return
+  if (!props.content?.imageUrl) return
   const img = new Image()
   img.onload = () => {
     imageLoaded.value = true
@@ -80,7 +93,7 @@ function getPieceStyle(pieceId: number) {
   const col = pieceId % GRID_SIZE
   const pct = 100 / GRID_SIZE
   return {
-    backgroundImage: `url(${props.content.imageUrl})`,
+    backgroundImage: `url(${props.content?.imageUrl})`,
     backgroundSize: `${GRID_SIZE * 100}% ${GRID_SIZE * 100}%`,
     backgroundPosition: `${col * pct}% ${row * pct}%`,
   }
@@ -92,7 +105,7 @@ function getPieceStyle(pieceId: number) {
     <!-- Preview -->
     <div v-if="showPreview && imageLoaded" class="puzzle-preview">
       <h3 class="puzzle-preview-title">Remember this image and start the puzzle challenge!</h3>
-      <img :src="content.imageUrl" alt="Puzzle preview" class="puzzle-preview-img" />
+      <img :src="content?.imageUrl" alt="Puzzle preview" class="puzzle-preview-img" />
       <button class="puzzle-btn" @click="startPuzzle">
         Begin in... {{ previewCountdown }}
       </button>

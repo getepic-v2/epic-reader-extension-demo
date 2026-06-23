@@ -1,9 +1,14 @@
 <script setup lang="ts">
 import { ref } from 'vue'
-import type { StarContent } from '../types'
+import type { StarContent, DrawerCompleteEvent } from '../types'
+import type { DrawerStore } from '../composables/useDrawerStore'
 
 const props = defineProps<{
-  content: StarContent
+  content?: StarContent
+  store?: DrawerStore
+}>()
+const emit = defineEmits<{
+  (e: 'complete', event: DrawerCompleteEvent): void
 }>()
 
 const selectedIndex = ref<number | null>(null)
@@ -17,9 +22,21 @@ function onOptionClick(index: number) {
 
 function checkAnswer() {
   if (selectedIndex.value === null) return
-  const option = props.content.options?.[selectedIndex.value]
+  const option = props.content?.options?.[selectedIndex.value]
   isCorrect.value = !!option?.isCorrect
   hasAnswered.value = true
+  props.store?.updateCloseMetrics({
+    isStarComplete: true,
+    isCorrect: isCorrect.value,
+  })
+  emit('complete', {
+    type: 'multiple-choice',
+    data: {
+      hasAnswered: true,
+      optionId: option?.id,
+      isCorrect: isCorrect.value,
+    },
+  })
 }
 
 function getOptionClass(index: number, option: { isCorrect: boolean }) {
@@ -40,11 +57,11 @@ function getButtonText() {
 
 <template>
   <div class="mc-container">
-    <h3 class="mc-question">{{ content.question }}</h3>
+    <h3 class="mc-question">{{ content?.question }}</h3>
 
     <div class="mc-options">
       <button
-        v-for="(option, index) in content.options"
+        v-for="(option, index) in content?.options"
         :key="option.id"
         class="mc-option"
         :class="getOptionClass(index, option)"
