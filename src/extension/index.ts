@@ -2,12 +2,31 @@ import { createApp, reactive } from 'vue'
 import StarOverlay from './components/StarOverlay.vue'
 import DrawerPanel from './components/DrawerPanel.vue'
 import GameContent from './components/GameContent.vue'
+import KeyGemOverlay from './components/KeyGemOverlay.vue'
+import VideoModal from './components/VideoModal.vue'
+import GuideModal from './components/GuideModal.vue'
+import BookRatingModal from './components/BookRatingModal.vue'
 import { injectStyles } from './utils/styles'
-import type { ExtensionContext, Star, ClickVideo, EpicReaderBookData } from './types'
+import type {
+  ExtensionContext,
+  Star,
+  ClickVideo,
+  EpicReaderBookData,
+  VideoModalData,
+  EpicLabsGuideModalResult,
+  BookRatingDialogData,
+} from './types'
 import { parseLabsXml } from './utils/parse-labs-xml'
 import { createDrawerStore } from './composables/useDrawerStore'
 import { createAnalytics } from './composables/useAnalytics'
-import { EPIC_LABS_STAR_CLICK, EPIC_LABS_PAGE_EXPOSURE } from './constants/analytics-events'
+import { createTreasureService } from './composables/useTreasureService'
+import { createMotionActiveOverlay } from './composables/useMotionActiveOverlay'
+import { loadFlag, saveFlag, STORAGE_KEYS } from './utils/storage'
+import {
+  EPIC_LABS_STAR_CLICK,
+  EPIC_LABS_PAGE_EXPOSURE,
+  EPIC_LABS_GUIDE_CLOSE,
+} from './constants/analytics-events'
 
 let parsedLabsData: EpicReaderBookData | null = null
 
@@ -425,6 +444,429 @@ const MODAL_CSS = `
   border: none;
   background: #fff;
 }
+
+/* Video modal */
+.video-modal-container {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: #000;
+  font-family: Arial, sans-serif;
+}
+.video-modal-frame {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.video-player {
+  max-width: 100%;
+  max-height: 100%;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+.video-modal-skip {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  padding: 8px 20px;
+  font-size: 14px;
+  font-weight: 700;
+  color: #fff;
+  background: rgba(255, 255, 255, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  border-radius: 20px;
+  cursor: pointer;
+  font-family: inherit;
+}
+.video-modal-skip:hover {
+  background: rgba(255, 255, 255, 0.3);
+}
+
+/* Guide modal */
+.guide-modal-wrapper {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.6);
+  font-family: Arial, sans-serif;
+}
+.guide-modal-buddy {
+  position: absolute;
+  left: 8%;
+  bottom: 0;
+  height: 70%;
+  pointer-events: none;
+}
+.guide-modal-container {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  background: #fff;
+  border-radius: 24px;
+  padding: 32px 40px;
+  max-width: 560px;
+  gap: 16px;
+}
+.guide-modal-close {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  width: 32px;
+  height: 32px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  font-size: 22px;
+  color: #9aa7b8;
+}
+.guide-modal-container h2 {
+  margin: 0;
+  font-size: 26px;
+  color: #17324d;
+}
+.guide-modal-lottie {
+  position: relative;
+  width: 532px;
+  max-width: 100%;
+  height: 205px;
+}
+.guide-modal-lottie__bg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+.guide-modal-lottie__anim {
+  position: absolute;
+  inset: 0;
+}
+.guide-modal-lottie__appear,
+.guide-modal-lottie__loop {
+  position: absolute;
+  inset: 0;
+}
+.guide-modal-lottie__appear--hidden {
+  display: none;
+}
+.guide-modal-lottie__loop {
+  display: none;
+}
+.guide-modal-lottie__loop--visible {
+  display: block;
+}
+.guide-description {
+  margin: 0;
+  font-size: 16px;
+  line-height: 1.6;
+  color: #4c5f75;
+}
+.guide-modal-star {
+  display: inline-block;
+  width: 20px;
+  height: 20px;
+  vertical-align: middle;
+  margin: 0 2px;
+}
+.epic-btn {
+  padding: 14px 32px;
+  font-size: 16px;
+  font-weight: 700;
+  color: #fff;
+  background: #fd5533;
+  border: none;
+  border-radius: 24px;
+  cursor: pointer;
+  font-family: inherit;
+}
+.epic-btn--l {
+  padding: 16px 40px;
+  font-size: 18px;
+}
+.guide-modal-text-button {
+  background: transparent;
+  border: none;
+  color: #9aa7b8;
+  font-size: 14px;
+  cursor: pointer;
+  font-family: inherit;
+  text-decoration: underline;
+}
+
+/* Book rating modal */
+.book-rating-modal-container {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  background: #fff;
+  font-family: Arial, sans-serif;
+  gap: 12px;
+}
+.mat-dialog-close {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  width: 32px;
+  height: 32px;
+  cursor: pointer;
+  z-index: 2;
+}
+.mat-dialog-close::before,
+.mat-dialog-close::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 20px;
+  height: 2px;
+  background: #9aa7b8;
+}
+.mat-dialog-close::before {
+  transform: translate(-50%, -50%) rotate(45deg);
+}
+.mat-dialog-close::after {
+  transform: translate(-50%, -50%) rotate(-45deg);
+}
+.book-cover {
+  width: 120px;
+  height: 160px;
+  object-fit: cover;
+  border-radius: 12px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+.book-rating-modal-container h2 {
+  margin: 8px 0 0;
+  font-size: 22px;
+  color: #17324d;
+}
+.book-rating-modal-container .subtitle {
+  margin: 0;
+  font-size: 14px;
+  color: #6f8196;
+}
+.stars-container {
+  display: flex;
+  gap: 8px;
+  margin: 8px 0;
+}
+.star-button {
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+}
+.star-button:disabled {
+  cursor: default;
+}
+.star-icon {
+  width: 100%;
+  height: 100%;
+}
+.submit-button {
+  margin-top: 8px;
+}
+.submit-button--success {
+  background: #47b334;
+}
+
+/* Key/gem/portal overlay (reading-area) */
+.key-gem-overlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 2;
+}
+.key-overlay {
+  position: absolute;
+  left: 50%;
+  bottom: 8%;
+  transform: translateX(-50%);
+  width: 220px;
+  height: 120px;
+  pointer-events: none;
+}
+.key-overlay__wrap {
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+.key-overlay__base,
+.key-overlay__key {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+}
+.key-overlay__key {
+  width: 70%;
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3));
+}
+.key-overlay__key--shine {
+  filter: drop-shadow(0 0 8px rgba(255, 220, 100, 0.8));
+}
+.key-overlay__shine {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: 70%;
+  height: 70%;
+}
+.key-overlay__gem {
+  position: absolute;
+  top: 30%;
+  width: 24px;
+  height: 24px;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+.key-overlay__gem--0 {
+  left: 21%;
+}
+.key-overlay__gem--1 {
+  left: 49.5%;
+}
+.key-overlay__gem--2 {
+  left: 81.5%;
+}
+.key-overlay__gem.--visible {
+  opacity: 1;
+}
+.key-overlay__gem img {
+  width: 100%;
+  height: 100%;
+}
+.portal-overlay {
+  position: absolute;
+  pointer-events: auto;
+  width: 18%;
+  aspect-ratio: 1;
+  transform: translate(-50%, -50%);
+}
+.portal-tooltip {
+  position: absolute;
+  bottom: 105%;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(23, 50, 77, 0.92);
+  color: #fff;
+  padding: 8px 12px;
+  border-radius: 8px;
+  font-size: 12px;
+  white-space: nowrap;
+  pointer-events: none;
+}
+.portal-anims {
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+.portal-anim {
+  position: absolute;
+  inset: 0;
+}
+.portal-click-zone {
+  position: absolute;
+  inset: 0;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+}
+
+/* Treasure modal (key-ready celebration) */
+.tm-overlay {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10000;
+  font-family: Arial, sans-serif;
+}
+.tm-scrim {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+}
+.tm-content {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  background: #fff;
+  border-radius: 24px;
+  padding: 32px 48px;
+  text-align: center;
+  opacity: 0;
+  transition: opacity 0.4s ease;
+  max-width: 440px;
+}
+.tm-content--visible {
+  opacity: 1;
+}
+.tm-title-wrap {
+  position: relative;
+}
+.tm-ribbon {
+  width: 80px;
+  height: auto;
+}
+.tm-title {
+  margin: 8px 0 0;
+  font-size: 24px;
+  color: #17324d;
+}
+.tm-key-anim {
+  width: 160px;
+  height: 160px;
+}
+.tm-body-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.tm-key-sm {
+  width: 32px;
+  height: 32px;
+}
+.tm-body {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.5;
+  color: #4c5f75;
+  text-align: left;
+}
+.tm-btn {
+  padding: 14px 36px;
+  font-size: 16px;
+  font-weight: 700;
+  color: #fff;
+  background: #fd5533;
+  border: none;
+  border-radius: 24px;
+  cursor: pointer;
+  font-family: inherit;
+}
 `
 
 declare const __EXTENSION_GLOBAL_NAME__: string
@@ -433,6 +875,15 @@ declare const __EXTENSION_GLOBAL_NAME__: string
     // --- Shared services ---
     const drawerStore = createDrawerStore()
     const analytics = createAnalytics(context)
+    const treasureService = createTreasureService()
+    const motionOverlay = createMotionActiveOverlay(
+      () => ({ drawerWidth: 480, drawerHeight: 640 }),
+    )
+    let keyGemOverlayRef: {
+      collect: (id: string, starIndex: number, starType?: string) => void
+      reset: () => void
+      restoreGems: (ids: string[]) => void
+    } | null = null
 
     // --- State ---
     const state = reactive({
@@ -441,7 +892,30 @@ declare const __EXTENSION_GLOBAL_NAME__: string
       stars: getCurrentPageStars(context),
       clickVideos: getCurrentPageClickVideos(context),
       selectedStar: null as Star | null,
+      /** Which modal is currently active in the modal slot. */
+      activeModal: null as
+        | 'game'
+        | 'video'
+        | 'guide'
+        | 'bookRating'
+        | null,
+      videoModalData: null as VideoModalData | null,
+      bookRatingData: null as BookRatingDialogData | null,
     })
+
+    const bookData = getLabsData(context)
+
+    // Restore previously collected keys for this book (no animation).
+    if (bookData?.treasureConfig && state.bookId !== undefined) {
+      const collected = treasureService.loadPersisted(state.bookId)
+      if (collected.length) {
+        // restoreGems is called once the KeyGemOverlay is mounted (below);
+        // stash the ids so the overlay can apply them on mount.
+        pendingRestoreIds = collected
+      }
+      treasureService.persist(state.bookId)
+    }
+    let pendingRestoreIds: string[] | null = null
 
     // page exposure analytics on first load
     analytics.log(EPIC_LABS_PAGE_EXPOSURE, {
@@ -449,10 +923,9 @@ declare const __EXTENSION_GLOBAL_NAME__: string
       page: state.page,
     })
 
-    // --- Reading area: render stars + interaction layers ---
+    // --- Reading area: render stars + interaction layers + key/gem overlay ---
     const readingRoot = context.slots.get('reading-area')
     injectStyles(readingRoot, STAR_CSS, 'epic-star-styles')
-
 
     const starContainer = document.createElement('div')
     starContainer.style.cssText = 'position:absolute;inset:0;pointer-events:none;'
@@ -463,8 +936,41 @@ declare const __EXTENSION_GLOBAL_NAME__: string
       state,
       store: drawerStore,
       clickVideos: state.clickVideos,
+      // Wire click-video buttons to open the video modal.
+      onVideoClick: (url: string) => {
+        state.videoModalData = { videoUrl: url, skipLabel: 'Skip' }
+        state.activeModal = 'video'
+        context.commands.execute('openModal', { width: 720, height: 480 })
+      },
     })
     starApp.mount(starContainer)
+
+    // Key/gem/portal overlay — only when the book has a treasure config.
+    let keyGemApp: ReturnType<typeof createApp> | null = null
+    let keyGemContainer: HTMLElement | null = null
+    if (bookData?.treasureConfig) {
+      keyGemContainer = document.createElement('div')
+      keyGemContainer.style.cssText = 'position:absolute;inset:0;pointer-events:none;'
+      readingRoot.appendChild(keyGemContainer)
+
+      keyGemApp = createApp(KeyGemOverlay, {
+        epicLabsBookData: bookData,
+        currentPage: state.page,
+        bookId: state.bookId,
+        drawerDimensions: { drawerWidth: 480, drawerHeight: 640 },
+        treasureService,
+        store: drawerStore,
+        analytics,
+        onReady: (api: any) => {
+          keyGemOverlayRef = api
+          if (pendingRestoreIds) {
+            keyGemOverlayRef?.restoreGems(pendingRestoreIds)
+            pendingRestoreIds = null
+          }
+        },
+      })
+      keyGemApp.mount(keyGemContainer)
+    }
 
     // --- Events ---
     const unsubPage = context.events.on('pageChange', (payload: any) => {
@@ -473,6 +979,7 @@ declare const __EXTENSION_GLOBAL_NAME__: string
       state.clickVideos = getCurrentPageClickVideos(context)
       state.selectedStar = null
       drawerStore.resetDrawerState()
+      keyGemOverlayRef?.resetPortalVisualState()
       analytics.log(EPIC_LABS_PAGE_EXPOSURE, {
         bookId: state.bookId,
         page: state.page,
@@ -493,7 +1000,13 @@ declare const __EXTENSION_GLOBAL_NAME__: string
           drawerContainer.style.cssText = 'width:100%;height:100%;'
           drawerRoot.appendChild(drawerContainer)
 
-          drawerApp = createApp(DrawerPanel, { store: drawerStore, star: state.selectedStar })
+          drawerApp = createApp(DrawerPanel, {
+            store: drawerStore,
+            star: state.selectedStar,
+            onTreasureCollect: (interactionId: string, starIndex: number, starType?: string) => {
+              keyGemOverlayRef?.collect(interactionId, starIndex, starType)
+            },
+          })
           drawerApp.mount(drawerContainer)
         } catch {
           // drawer slot not ready
@@ -506,34 +1019,91 @@ declare const __EXTENSION_GLOBAL_NAME__: string
       }
     })
 
-    // --- Modal (for game stars) ---
+    // --- Modal slot: dispatch by activeModal type ---
     let modalApp: ReturnType<typeof createApp> | null = null
     let modalContainer: HTMLElement | null = null
 
+    function mountModal() {
+      if (!state.activeModal) return
+      try {
+        const modalRoot = context.slots.get('modal')
+        injectStyles(modalRoot, MODAL_CSS, 'epic-modal-styles')
+
+        modalContainer = document.createElement('div')
+        modalContainer.style.cssText = 'width:100%;height:100%;'
+        modalRoot.appendChild(modalContainer)
+
+        if (state.activeModal === 'game') {
+          modalApp = createApp(GameContent, { content: state.selectedStar?.content })
+        } else if (state.activeModal === 'video' && state.videoModalData) {
+          modalApp = createApp(VideoModal, {
+            data: state.videoModalData,
+            onClosed: () => {
+              state.activeModal = null
+              state.videoModalData = null
+              context.commands.execute('closeModal')
+            },
+          })
+        } else if (state.activeModal === 'guide') {
+          modalApp = createApp(GuideModal, {
+            onClosed: (result: EpicLabsGuideModalResult) => {
+              if (result === 'dont-show') {
+                saveFlag(STORAGE_KEYS.GUIDE_DISMISSED, true)
+              }
+              analytics.log(EPIC_LABS_GUIDE_CLOSE, { result })
+              state.activeModal = null
+              context.commands.execute('closeModal')
+            },
+          })
+        } else if (state.activeModal === 'bookRating') {
+          modalApp = createApp(BookRatingModal, {
+            data: state.bookRatingData ?? undefined,
+            analytics,
+            onClosed: () => {
+              if (state.bookId !== undefined) {
+                saveFlag(STORAGE_KEYS.BOOK_RATING_SHOWN, true, state.bookId)
+              }
+              state.activeModal = null
+              state.bookRatingData = null
+              context.commands.execute('closeModal')
+            },
+          })
+        } else {
+          modalApp = createApp(GameContent, { content: state.selectedStar?.content })
+        }
+        modalApp.mount(modalContainer)
+      } catch {
+        // modal slot not ready
+      }
+    }
+
+    function unmountModal() {
+      modalApp?.unmount()
+      modalContainer?.remove()
+      modalApp = null
+      modalContainer = null
+    }
+
     const unsubModal = context.events.on('modalStateChange', (payload: any) => {
       if (payload?.mounted) {
-        try {
-          const modalRoot = context.slots.get('modal')
-          injectStyles(modalRoot, MODAL_CSS, 'epic-modal-styles')
-
-          modalContainer = document.createElement('div')
-          modalContainer.style.cssText = 'width:100%;height:100%;'
-          modalRoot.appendChild(modalContainer)
-
-          modalApp = createApp(GameContent, { content: state.selectedStar?.content })
-          modalApp.mount(modalContainer)
-        } catch {
-          // modal slot not ready
-        }
+        mountModal()
       } else {
-        modalApp?.unmount()
-        modalContainer?.remove()
-        modalApp = null
-        modalContainer = null
+        unmountModal()
       }
     })
 
-    // --- Intercept openDrawer to handle game stars + sync store ---
+    // First-visit onboarding guide (once per browser, unless dismissed).
+    if (!loadFlag(STORAGE_KEYS.GUIDE_DISMISSED)) {
+      state.activeModal = 'guide'
+      // Defer so the host has a chance to mount the modal slot.
+      setTimeout(() => {
+        if (state.activeModal === 'guide') {
+          context.commands.execute('openModal', { width: 720, height: 560 })
+        }
+      }, 300)
+    }
+
+    // --- Intercept openDrawer to handle game stars + sync store + treasure ---
     const originalExecute = context.commands.execute.bind(context.commands)
     context.commands.execute = (command: string, payload?: any) => {
       if (command === 'openDrawer' && payload?.star) {
@@ -559,6 +1129,7 @@ declare const __EXTENSION_GLOBAL_NAME__: string
         })
 
         if (star.type === 'game') {
+          state.activeModal = 'game'
           originalExecute('openModal', { width: 960, height: 640 })
           return
         }
@@ -566,18 +1137,24 @@ declare const __EXTENSION_GLOBAL_NAME__: string
       originalExecute(command, payload)
     }
 
+    // Expose the KeyGemOverlay's imperative API once mounted. Vue mounts
+    // synchronously above, so we read the component instance ref here.
+
     // --- Cleanup ---
     return () => {
       unsubPage()
       unsubDrawer()
       unsubModal()
-      modalApp?.unmount()
-      modalContainer?.remove()
+      unmountModal()
       drawerApp?.unmount()
       drawerContainer?.remove()
+      keyGemApp?.unmount()
+      keyGemContainer?.remove()
       starApp.unmount()
       starContainer.remove()
       drawerStore.dispose()
+      treasureService.dispose()
+      motionOverlay.dispose()
     }
   },
 }

@@ -20,6 +20,8 @@ const props = defineProps<{
   store: DrawerStore
   /** Fallback selected star (used until store.state.selectedContent is set). */
   star?: Star | null
+  /** Called when a star carrying a treasure reward is completed — collects the key. */
+  onTreasureCollect?: (interactionId: string, starIndex: number, starType?: string) => void
 }>()
 
 const showCelebration = ref(false)
@@ -56,6 +58,15 @@ function shouldCelebrate(event: DrawerCompleteEvent): boolean {
 
 function onContentComplete(event: DrawerCompleteEvent) {
   props.store.sendCompleteEvent(event)
+  // If the completed star carries a treasure reward, collect its key.
+  const star = selectedStar.value
+  if (star?.content?.treasure && props.onTreasureCollect) {
+    const pageIndex = props.store.state.pageIndex
+    const starIndex = props.store.state.starIndex
+    if (pageIndex != null && starIndex != null) {
+      props.onTreasureCollect(`${pageIndex}_${starIndex}`, starIndex, star.type)
+    }
+  }
 }
 
 function onCloseClick() {

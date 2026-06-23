@@ -15,6 +15,8 @@ const props = defineProps<{
   }
   store?: DrawerStore
   clickVideos?: ClickVideo[]
+  /** Called when a click-video button is tapped — opens the video modal. */
+  onVideoClick?: (url: string) => void
 }>()
 
 const STAR_LOTTIE_PATH = '/assets/epic-labs/animations/star/'
@@ -143,8 +145,8 @@ function onHotspotTap(isCorrect: boolean) {
 
 function onClickVideoClick(index: number) {
   clickVideoPlaying.value.add(index)
-  // TODO(stage 4): open video modal with props.clickVideos[index].url
-  console.log('[epic-labs] click video', index, props.clickVideos?.[index]?.url)
+  const url = props.clickVideos?.[index]?.url
+  if (url) props.onVideoClick?.(url)
 }
 
 function handleCommand(cmd: InteractionCommand) {

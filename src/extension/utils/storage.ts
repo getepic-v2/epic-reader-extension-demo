@@ -15,7 +15,7 @@ function buildKey(bookId: number | string | undefined, key: string): string {
 export function loadJSON<T>(
   key: string,
   fallback: T,
-  bookId?: number,
+  bookId?: number | string,
 ): T {
   try {
     const raw = localStorage.getItem(buildKey(bookId, key))
@@ -26,7 +26,7 @@ export function loadJSON<T>(
   }
 }
 
-export function saveJSON<T>(key: string, value: T, bookId?: number): void {
+export function saveJSON<T>(key: string, value: T, bookId?: number | string): void {
   try {
     localStorage.setItem(buildKey(bookId, key), JSON.stringify(value))
   } catch {
@@ -34,7 +34,7 @@ export function saveJSON<T>(key: string, value: T, bookId?: number): void {
   }
 }
 
-export function remove(key: string, bookId?: number): void {
+export function remove(key: string, bookId?: number | string): void {
   try {
     localStorage.removeItem(buildKey(bookId, key))
   } catch {
@@ -42,11 +42,11 @@ export function remove(key: string, bookId?: number): void {
   }
 }
 
-export function loadFlag(key: string, bookId?: number): boolean {
+export function loadFlag(key: string, bookId?: number | string): boolean {
   return loadJSON<boolean>(key, false, bookId)
 }
 
-export function saveFlag(key: string, value: boolean, bookId?: number): void {
+export function saveFlag(key: string, value: boolean, bookId?: number | string): void {
   saveJSON(key, value, bookId)
 }
 

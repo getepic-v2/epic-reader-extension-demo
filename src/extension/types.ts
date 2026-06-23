@@ -349,3 +349,30 @@ export type DrawerCompleteEvent =
 // --- Backward-compatible aliases (existing demo code uses these names) ---
 export type EpicReaderBookPage = EpicLabsBookPage
 export type EpicReaderBookData = EpicLabsBookData
+
+// --- Modal data/result contracts (ported from EpicWeb modal components) ---
+
+export interface VideoModalData {
+  videoUrl: string
+  skipLabel?: string
+}
+
+export interface VideoModalResult {
+  /** 1 if watched to the end, 0 if skipped. */
+  isFinish: number
+  /** Watched seconds, 2 decimal places. */
+  duration: number
+}
+
+export type EpicLabsGuideModalResult = 'start' | 'dont-show'
+
+export interface BookRatingDialogData {
+  bookTitle?: string
+  coverUrl?: string
+  bookId?: number
+}
+
+export interface BookRatingDialogResult {
+  /** The chosen rating, or null if the user closed without submitting. */
+  rating: number | null
+}
