@@ -3,8 +3,11 @@ import StarOverlay from './components/StarOverlay.vue'
 import DrawerPanel from './components/DrawerPanel.vue'
 import GameContent from './components/GameContent.vue'
 import { injectStyles } from './utils/styles'
-import type { ExtensionContext, Star, EpicReaderBookData } from './types'
+import type { ExtensionContext, Star, ClickVideo, EpicReaderBookData } from './types'
 import { parseLabsXml } from './utils/parse-labs-xml'
+import { createDrawerStore } from './composables/useDrawerStore'
+import { createAnalytics } from './composables/useAnalytics'
+import { EPIC_LABS_STAR_CLICK, EPIC_LABS_PAGE_EXPOSURE } from './constants/analytics-events'
 
 let parsedLabsData: EpicReaderBookData | null = null
 
@@ -20,13 +23,18 @@ function getLabsData(context: ExtensionContext): EpicReaderBookData | null {
   return parsedLabsData
 }
 
-function getCurrentPageStars(context: ExtensionContext): Star[] {
-  const data = getLabsData(context)
-  if (!data?.pages) return []
-  const page = data.pages.find(
+function getCurrentPage(context: ExtensionContext) {
+  return getLabsData(context)?.pages.find(
     (p) => p.pageNumber === context.data.getCurrentPage(),
   )
-  return page?.stars || []
+}
+
+function getCurrentPageStars(context: ExtensionContext): Star[] {
+  return getCurrentPage(context)?.stars || []
+}
+
+function getCurrentPageClickVideos(context: ExtensionContext): ClickVideo[] {
+  return getCurrentPage(context)?.clickVideos || []
 }
 
 const STAR_CSS = `
@@ -422,15 +430,26 @@ const MODAL_CSS = `
 declare const __EXTENSION_GLOBAL_NAME__: string
 ;(window as any)[__EXTENSION_GLOBAL_NAME__] = {
   activate(context: ExtensionContext) {
+    // --- Shared services ---
+    const drawerStore = createDrawerStore()
+    const analytics = createAnalytics(context)
+
     // --- State ---
     const state = reactive({
       page: context.data.getCurrentPage(),
       bookId: context.data.getBookId(),
       stars: getCurrentPageStars(context),
+      clickVideos: getCurrentPageClickVideos(context),
       selectedStar: null as Star | null,
     })
 
-    // --- Reading area: render stars ---
+    // page exposure analytics on first load
+    analytics.log(EPIC_LABS_PAGE_EXPOSURE, {
+      bookId: state.bookId,
+      page: state.page,
+    })
+
+    // --- Reading area: render stars + interaction layers ---
     const readingRoot = context.slots.get('reading-area')
     injectStyles(readingRoot, STAR_CSS, 'epic-star-styles')
 
@@ -439,14 +458,25 @@ declare const __EXTENSION_GLOBAL_NAME__: string
     starContainer.style.cssText = 'position:absolute;inset:0;pointer-events:none;'
     readingRoot.appendChild(starContainer)
 
-    const starApp = createApp(StarOverlay, { context, state })
+    const starApp = createApp(StarOverlay, {
+      context,
+      state,
+      store: drawerStore,
+      clickVideos: state.clickVideos,
+    })
     starApp.mount(starContainer)
 
     // --- Events ---
     const unsubPage = context.events.on('pageChange', (payload: any) => {
       state.page = payload?.pageIndex ?? context.data.getCurrentPage()
       state.stars = getCurrentPageStars(context)
+      state.clickVideos = getCurrentPageClickVideos(context)
       state.selectedStar = null
+      drawerStore.resetDrawerState()
+      analytics.log(EPIC_LABS_PAGE_EXPOSURE, {
+        bookId: state.bookId,
+        page: state.page,
+      })
     })
 
     // --- Drawer ---
@@ -463,7 +493,7 @@ declare const __EXTENSION_GLOBAL_NAME__: string
           drawerContainer.style.cssText = 'width:100%;height:100%;'
           drawerRoot.appendChild(drawerContainer)
 
-          drawerApp = createApp(DrawerPanel, { star: state.selectedStar })
+          drawerApp = createApp(DrawerPanel, { store: drawerStore, star: state.selectedStar })
           drawerApp.mount(drawerContainer)
         } catch {
           // drawer slot not ready
@@ -503,16 +533,35 @@ declare const __EXTENSION_GLOBAL_NAME__: string
       }
     })
 
-    // --- Intercept openDrawer to handle game stars ---
+    // --- Intercept openDrawer to handle game stars + sync store ---
     const originalExecute = context.commands.execute.bind(context.commands)
     context.commands.execute = (command: string, payload?: any) => {
       if (command === 'openDrawer' && payload?.star) {
-        if (payload.star.type === 'game') {
-          state.selectedStar = payload.star
+        const star = payload.star as Star
+        state.selectedStar = star
+        // sync shared store so drawer panel + reading area agree on the
+        // active star and book/page/star indices
+        drawerStore.updateDrawerState({
+          selectedContent: star,
+          bookId: state.bookId,
+          pageIndex: state.page,
+          starIndex: payload.starIndex ?? null,
+        })
+        drawerStore.startCloseMetrics({
+          starIndex: payload.starIndex ?? null,
+          starType: (star.type as any) ?? 'quiz',
+          isStarComplete: false,
+        })
+        analytics.log(EPIC_LABS_STAR_CLICK, {
+          bookId: state.bookId,
+          page: state.page,
+          starType: star.type,
+        })
+
+        if (star.type === 'game') {
           originalExecute('openModal', { width: 960, height: 640 })
           return
         }
-        state.selectedStar = payload.star
       }
       originalExecute(command, payload)
     }
@@ -528,6 +577,7 @@ declare const __EXTENSION_GLOBAL_NAME__: string
       drawerContainer?.remove()
       starApp.unmount()
       starContainer.remove()
+      drawerStore.dispose()
     }
   },
 }
