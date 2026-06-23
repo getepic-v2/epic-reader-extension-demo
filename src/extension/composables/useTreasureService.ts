@@ -116,7 +116,9 @@ export function createTreasureService(
       const sortedIds = Array.from(keyRewardMap.keys()).sort((a, b) => {
         const [pageA, starA] = a.split('_').map(Number)
         const [pageB, starB] = b.split('_').map(Number)
-        return pageA !== pageB ? pageA - pageB : starA - starB
+        return (pageA ?? 0) !== (pageB ?? 0)
+          ? (pageA ?? 0) - (pageB ?? 0)
+          : (starA ?? 0) - (starB ?? 0)
       })
       slotIndexMap = new Map(sortedIds.map((id, i) => [id, i]))
 
@@ -195,7 +197,7 @@ export function createTreasureService(
       const pages = new Set<number>()
       for (const id of keyRewardMap.keys()) {
         if (!collectedKeys.has(id)) {
-          const pageNum = parseInt(id.split('_')[0], 10)
+          const pageNum = parseInt(id.split('_')[0] ?? '0', 10)
           if (!isNaN(pageNum)) pages.add(pageNum)
         }
       }
@@ -218,7 +220,7 @@ export function createTreasureService(
 
     loadPersisted(bookId) {
       currentBookId = bookId
-      if (!persistence) return []
+      if (!persistence || bookId === undefined) return []
       try {
         return persistence.loadCollectedIds(bookId)
       } catch {

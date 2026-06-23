@@ -2,7 +2,7 @@ import { createApp, reactive } from 'vue'
 import StarOverlay from './components/StarOverlay.vue'
 import DrawerPanel from './components/DrawerPanel.vue'
 import GameContent from './components/GameContent.vue'
-import KeyGemOverlay from './components/KeyGemOverlay.vue'
+import KeyGemOverlay, { type KeyGemOverlayApi } from './components/KeyGemOverlay.vue'
 import VideoModal from './components/VideoModal.vue'
 import GuideModal from './components/GuideModal.vue'
 import BookRatingModal from './components/BookRatingModal.vue'
@@ -931,11 +931,7 @@ declare const __EXTENSION_GLOBAL_NAME__: string
     const bookTotalPages = bookData?.pages.length ?? 0
     let lastVideoResult: VideoModalResult | null = null
     let guideOpenedAt: number | null = null
-    let keyGemOverlayRef: {
-      collect: (id: string, starIndex: number, starType?: string) => void
-      reset: () => void
-      restoreGems: (ids: string[]) => void
-    } | null = null
+    let keyGemOverlayRef: KeyGemOverlayApi | null = null
 
     // --- State ---
     const state = reactive({
@@ -955,17 +951,17 @@ declare const __EXTENSION_GLOBAL_NAME__: string
       bookRatingData: null as BookRatingDialogData | null,
     })
 
+    // Stash ids so the KeyGemOverlay can restore them once mounted (below).
+    let pendingRestoreIds: string[] | null = null
+
     // Restore previously collected keys for this book (no animation).
     if (bookData?.treasureConfig && state.bookId !== undefined) {
       const collected = treasureService.loadPersisted(state.bookId)
       if (collected.length) {
-        // restoreGems is called once the KeyGemOverlay is mounted (below);
-        // stash the ids so the overlay can apply them on mount.
         pendingRestoreIds = collected
       }
       treasureService.persist(state.bookId)
     }
-    let pendingRestoreIds: string[] | null = null
 
     // page exposure analytics on first load
     exposureStarCount += state.stars.filter((s: Star) => s.type !== 'game').length
