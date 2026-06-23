@@ -13,6 +13,7 @@ import type {
   ClickVideo,
   EpicReaderBookData,
   VideoModalData,
+  VideoModalResult,
   EpicLabsGuideModalResult,
   BookRatingDialogData,
 } from './types'
@@ -20,12 +21,24 @@ import { parseLabsXml } from './utils/parse-labs-xml'
 import { createDrawerStore } from './composables/useDrawerStore'
 import { createAnalytics } from './composables/useAnalytics'
 import { createTreasureService } from './composables/useTreasureService'
+import type { TreasurePersistence } from './composables/useTreasureService'
+import { createBookInteractiveInfoStore } from './composables/useBookInteractiveInfo'
+import type { EpicLabsInteractiveInfo } from './composables/useBookInteractiveInfo'
+import { createInteractionMemory } from './composables/useInteractionMemory'
 import { createMotionActiveOverlay } from './composables/useMotionActiveOverlay'
-import { loadFlag, saveFlag, STORAGE_KEYS } from './utils/storage'
+import { loadJSON, loadFlag, saveFlag, STORAGE_KEYS } from './utils/storage'
 import {
   EPIC_LABS_STAR_CLICK,
   EPIC_LABS_PAGE_EXPOSURE,
   EPIC_LABS_GUIDE_CLOSE,
+  EPIC_LABS_CLOSE_STAR,
+  EPIC_LABS_PAGE_CLOSE,
+  EPIC_LABS_GAME_CLOSE,
+  EPIC_LABS_COMPLETE_GAME,
+  EPIC_LABS_CLICK_READ_BUTTON,
+  EPIC_LABS_CLICK_COMPLETE_BUTTON,
+  EPIC_LABS_EXIT_READING,
+  EPIC_LABS_FINISH_READING,
 } from './constants/analytics-events'
 
 let parsedLabsData: EpicReaderBookData | null = null
@@ -875,10 +888,49 @@ declare const __EXTENSION_GLOBAL_NAME__: string
     // --- Shared services ---
     const drawerStore = createDrawerStore()
     const analytics = createAnalytics(context)
-    const treasureService = createTreasureService()
+    const interactiveInfoStore = createBookInteractiveInfoStore()
+    const interactionMemory = createInteractionMemory()
+    // Treasure persistence routes through the book-interactive-info store so
+    // collected ids live under `info.gems.collectedIds` — the same shape the
+    // backend API expects, ready to swap in later. Load is synchronous (restore
+    // happens on mount); save is fire-and-forget.
+    const treasurePersistence: TreasurePersistence = {
+      loadCollectedIds: (bookId) => {
+        const info = loadJSON<EpicLabsInteractiveInfo | null>(
+          STORAGE_KEYS.INTERACTION_INFO,
+          null,
+          bookId,
+        )
+        return info?.gems?.collectedIds ?? []
+      },
+      saveCollectedIds: (bookId, ids) => {
+        void interactiveInfoStore.setCollectedIds(bookId, ids)
+      },
+    }
+    const treasureService = createTreasureService(treasurePersistence)
     const motionOverlay = createMotionActiveOverlay(
       () => ({ drawerWidth: 480, drawerHeight: 640 }),
     )
+
+    const bookData = getLabsData(context)
+
+    // --- Session-level accumulators for reading-flow analytics ---
+    // Mirrors the counters epic-labs.component tracks across the reading
+    // session (exposure/click counts, page/session timestamps, game state).
+    // These feed PAGE_CLOSE, CLOSE_STAR, GAME_CLOSE, EXIT_READING, etc.
+    const sessionStart = Date.now()
+    let currentPageOpenedAt = Date.now()
+    let exposureStarCount = 0
+    let clickedStarCount = 0
+    let clickedGameCount = 0
+    let preUnlockClickCount = 0
+    let gameStartedAt: number | null = null
+    let gameReplayCount = 0
+    let hasGameSuccess = false
+    let readingHistory: number[] = []
+    const bookTotalPages = bookData?.pages.length ?? 0
+    let lastVideoResult: VideoModalResult | null = null
+    let guideOpenedAt: number | null = null
     let keyGemOverlayRef: {
       collect: (id: string, starIndex: number, starType?: string) => void
       reset: () => void
@@ -903,8 +955,6 @@ declare const __EXTENSION_GLOBAL_NAME__: string
       bookRatingData: null as BookRatingDialogData | null,
     })
 
-    const bookData = getLabsData(context)
-
     // Restore previously collected keys for this book (no animation).
     if (bookData?.treasureConfig && state.bookId !== undefined) {
       const collected = treasureService.loadPersisted(state.bookId)
@@ -918,9 +968,15 @@ declare const __EXTENSION_GLOBAL_NAME__: string
     let pendingRestoreIds: string[] | null = null
 
     // page exposure analytics on first load
+    exposureStarCount += state.stars.filter((s: Star) => s.type !== 'game').length
+    readingHistory = [state.page]
     analytics.log(EPIC_LABS_PAGE_EXPOSURE, {
-      bookId: state.bookId,
-      page: state.page,
+      book_id: state.bookId,
+      page_index: state.page,
+      star_num: state.stars.filter((s: Star) => s.type !== 'game').length,
+      star_click_num: clickedStarCount,
+      game_num: state.stars.filter((s: Star) => s.type === 'game').length,
+      game_click_num: clickedGameCount,
     })
 
     // --- Reading area: render stars + interaction layers + key/gem overlay ---
@@ -968,21 +1024,49 @@ declare const __EXTENSION_GLOBAL_NAME__: string
             pendingRestoreIds = null
           }
         },
+        onPreUnlockGameClick: () => {
+          preUnlockClickCount += 1
+        },
       })
       keyGemApp.mount(keyGemContainer)
     }
 
     // --- Events ---
     const unsubPage = context.events.on('pageChange', (payload: any) => {
+      // Fire PAGE_CLOSE for the page we're leaving, using its accumulated stats.
+      const prevPage = state.page
+      const prevStars = state.stars
+      const stayDuration = Date.now() - currentPageOpenedAt
+      const metrics = drawerStore.getCloseMetrics()
+      analytics.log(EPIC_LABS_PAGE_CLOSE, {
+        has_star: prevStars.length > 0,
+        page_index: prevPage,
+        star_type: metrics?.starType,
+        star_index: metrics?.starIndex,
+        has_treasure: metrics?.hasTreasure ? 1 : 0,
+        stay_duration: stayDuration,
+        star_clicked: clickedStarCount > 0 ? 1 : 0,
+        click_count: clickedStarCount,
+      })
+      drawerStore.clearCloseMetrics()
+
+      // Advance to the new page.
       state.page = payload?.pageIndex ?? context.data.getCurrentPage()
       state.stars = getCurrentPageStars(context)
       state.clickVideos = getCurrentPageClickVideos(context)
       state.selectedStar = null
       drawerStore.resetDrawerState()
       keyGemOverlayRef?.resetPortalVisualState()
+      currentPageOpenedAt = Date.now()
+      exposureStarCount += state.stars.filter((s: Star) => s.type !== 'game').length
+      if (!readingHistory.includes(state.page)) readingHistory.push(state.page)
       analytics.log(EPIC_LABS_PAGE_EXPOSURE, {
-        bookId: state.bookId,
-        page: state.page,
+        book_id: state.bookId,
+        page_index: state.page,
+        star_num: state.stars.filter((s: Star) => s.type !== 'game').length,
+        star_click_num: clickedStarCount,
+        game_num: state.stars.filter((s: Star) => s.type === 'game').length,
+        game_click_num: clickedGameCount,
       })
     })
 
@@ -1003,6 +1087,8 @@ declare const __EXTENSION_GLOBAL_NAME__: string
           drawerApp = createApp(DrawerPanel, {
             store: drawerStore,
             star: state.selectedStar,
+            analytics,
+            bookId: state.bookId,
             onTreasureCollect: (interactionId: string, starIndex: number, starType?: string) => {
               keyGemOverlayRef?.collect(interactionId, starIndex, starType)
             },
@@ -1012,10 +1098,25 @@ declare const __EXTENSION_GLOBAL_NAME__: string
           // drawer slot not ready
         }
       } else {
+        // Drawer closing — fire CLOSE_STAR with the accumulated metrics.
+        const metrics = drawerStore.getCloseMetrics()
+        if (metrics) {
+          analytics.log(EPIC_LABS_CLOSE_STAR, {
+            star_index: metrics.starIndex,
+            star_type: metrics.starType,
+            stay_duration: drawerStore.getStayDuration(),
+            has_animation: 0,
+            has_treasure: metrics.hasTreasure ? 1 : 0,
+            is_star_completed: metrics.isStarComplete ? 1 : 0,
+            count: 0,
+            is_correct: metrics.isCorrect ? 1 : 0,
+          })
+        }
         drawerApp?.unmount()
         drawerContainer?.remove()
         drawerApp = null
         drawerContainer = null
+        drawerStore.clearCloseMetrics()
       }
     })
 
@@ -1038,9 +1139,8 @@ declare const __EXTENSION_GLOBAL_NAME__: string
         } else if (state.activeModal === 'video' && state.videoModalData) {
           modalApp = createApp(VideoModal, {
             data: state.videoModalData,
-            onClosed: () => {
-              state.activeModal = null
-              state.videoModalData = null
+            onClosed: (result: VideoModalResult) => {
+              lastVideoResult = result
               context.commands.execute('closeModal')
             },
           })
@@ -1050,8 +1150,10 @@ declare const __EXTENSION_GLOBAL_NAME__: string
               if (result === 'dont-show') {
                 saveFlag(STORAGE_KEYS.GUIDE_DISMISSED, true)
               }
-              analytics.log(EPIC_LABS_GUIDE_CLOSE, { result })
-              state.activeModal = null
+              analytics.log(EPIC_LABS_GUIDE_CLOSE, {
+                result,
+                duration: guideOpenedAt ? Date.now() - guideOpenedAt : 0,
+              })
               context.commands.execute('closeModal')
             },
           })
@@ -1063,8 +1165,6 @@ declare const __EXTENSION_GLOBAL_NAME__: string
               if (state.bookId !== undefined) {
                 saveFlag(STORAGE_KEYS.BOOK_RATING_SHOWN, true, state.bookId)
               }
-              state.activeModal = null
-              state.bookRatingData = null
               context.commands.execute('closeModal')
             },
           })
@@ -1078,10 +1178,42 @@ declare const __EXTENSION_GLOBAL_NAME__: string
     }
 
     function unmountModal() {
+      // Fire close analytics for the modal that's being torn down.
+      const closingModal = state.activeModal
+      if (closingModal === 'game') {
+        const gameDuration = gameStartedAt ? Date.now() - gameStartedAt : 0
+        analytics.log(EPIC_LABS_GAME_CLOSE, {
+          game_id: state.selectedStar?.content?.url,
+          total_play_count: gameReplayCount + 1,
+          total_game_duration: gameDuration,
+          is_level_completed: hasGameSuccess ? 1 : 0,
+        })
+        analytics.log(EPIC_LABS_COMPLETE_GAME, {
+          book_id: state.bookId,
+          page_index: state.page,
+          star_index: drawerStore.state.starIndex,
+          is_game_complete: hasGameSuccess ? 1 : 0,
+          is_game_success: hasGameSuccess ? 1 : 0,
+          game_duration: gameDuration,
+          game_replay_num: gameReplayCount,
+        })
+        gameStartedAt = null
+      } else if (closingModal === 'video' && lastVideoResult) {
+        analytics.log(EPIC_LABS_CLICK_COMPLETE_BUTTON, {
+          book_id: state.bookId,
+          is_finish: lastVideoResult.isFinish,
+          duration: lastVideoResult.duration,
+        })
+        lastVideoResult = null
+      }
       modalApp?.unmount()
       modalContainer?.remove()
       modalApp = null
       modalContainer = null
+      // Clear the active modal after close analytics have fired.
+      state.activeModal = null
+      state.videoModalData = null
+      state.bookRatingData = null
     }
 
     const unsubModal = context.events.on('modalStateChange', (payload: any) => {
@@ -1095,6 +1227,7 @@ declare const __EXTENSION_GLOBAL_NAME__: string
     // First-visit onboarding guide (once per browser, unless dismissed).
     if (!loadFlag(STORAGE_KEYS.GUIDE_DISMISSED)) {
       state.activeModal = 'guide'
+      guideOpenedAt = Date.now()
       // Defer so the host has a chance to mount the modal slot.
       setTimeout(() => {
         if (state.activeModal === 'guide') {
@@ -1122,17 +1255,31 @@ declare const __EXTENSION_GLOBAL_NAME__: string
           starType: (star.type as any) ?? 'quiz',
           isStarComplete: false,
         })
-        analytics.log(EPIC_LABS_STAR_CLICK, {
-          bookId: state.bookId,
-          page: state.page,
-          starType: star.type,
-        })
-
         if (star.type === 'game') {
+          clickedGameCount += 1
+          gameStartedAt = Date.now()
+          gameReplayCount = 0
+          hasGameSuccess = false
+          analytics.log(EPIC_LABS_STAR_CLICK, {
+            page_index: state.page,
+            star_index: payload.starIndex,
+            book_id: state.bookId,
+            star_type: star.type,
+            count: clickedGameCount,
+          })
           state.activeModal = 'game'
           originalExecute('openModal', { width: 960, height: 640 })
           return
         }
+
+        clickedStarCount += 1
+        analytics.log(EPIC_LABS_STAR_CLICK, {
+          page_index: state.page,
+          star_index: payload.starIndex,
+          book_id: state.bookId,
+          star_type: star.type,
+          count: clickedStarCount,
+        })
       }
       originalExecute(command, payload)
     }
@@ -1142,6 +1289,37 @@ declare const __EXTENSION_GLOBAL_NAME__: string
 
     // --- Cleanup ---
     return () => {
+      // Reading session ending — fire the final page-close and exit events.
+      const finalStayDuration = Date.now() - currentPageOpenedAt
+      analytics.log(EPIC_LABS_PAGE_CLOSE, {
+        has_star: state.stars.length > 0,
+        page_index: state.page,
+        star_type: drawerStore.getCloseMetrics()?.starType,
+        star_index: drawerStore.getCloseMetrics()?.starIndex,
+        has_treasure: drawerStore.getCloseMetrics()?.hasTreasure ? 1 : 0,
+        stay_duration: finalStayDuration,
+        star_clicked: clickedStarCount > 0 ? 1 : 0,
+        click_count: clickedStarCount,
+      })
+      const readingDuration = Date.now() - sessionStart
+      analytics.log(EPIC_LABS_EXIT_READING, {
+        treasure_collected_count: treasureService.getCollectedCount(),
+        treasure_total_count: treasureService.getTotalCount(),
+        is_treasure_box_opened: 0,
+        reading_duration: readingDuration,
+        exposed_star_count: exposureStarCount,
+        clicked_star_count: clickedStarCount,
+        pre_unlock_game_click_count: preUnlockClickCount,
+      })
+      const isFinish = bookTotalPages > 0 && readingHistory.length >= bookTotalPages
+      analytics.log(EPIC_LABS_FINISH_READING, {
+        book_id: state.bookId,
+        is_finish: isFinish ? 1 : 0,
+        reading_duration: readingDuration,
+        reading_history: readingHistory,
+        reading_total_pages: bookTotalPages,
+      })
+
       unsubPage()
       unsubDrawer()
       unsubModal()
@@ -1152,6 +1330,7 @@ declare const __EXTENSION_GLOBAL_NAME__: string
       keyGemContainer?.remove()
       starApp.unmount()
       starContainer.remove()
+      interactionMemory.reset()
       drawerStore.dispose()
       treasureService.dispose()
       motionOverlay.dispose()

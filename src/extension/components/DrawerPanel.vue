@@ -2,6 +2,14 @@
 import { computed, onMounted, onUnmounted, ref } from 'vue'
 import type { Star, DrawerCompleteEvent } from '../types'
 import type { DrawerStore } from '../composables/useDrawerStore'
+import type { Analytics } from '../composables/useAnalytics'
+import {
+  EPIC_LABS_QUIZ_SINGLE_COMPLETE,
+  EPIC_LABS_QUIZ_COMPARE_COMPLETE,
+  EPIC_LABS_FLIP_MATCH_COMPLETE,
+  EPIC_LABS_DRAG_FILL_COMPLETE,
+  EPIC_LABS_TAP_MATCH_COMPLETE,
+} from '../constants/analytics-events'
 import MultipleChoice from './MultipleChoice.vue'
 import Puzzle from './Puzzle.vue'
 import Flashcard from './Flashcard.vue'
@@ -20,6 +28,10 @@ const props = defineProps<{
   store: DrawerStore
   /** Fallback selected star (used until store.state.selectedContent is set). */
   star?: Star | null
+  /** Analytics logger (context.analytics wrapper). */
+  analytics?: Analytics
+  /** Current book id, for completion-event payloads. */
+  bookId?: number
   /** Called when a star carrying a treasure reward is completed — collects the key. */
   onTreasureCollect?: (interactionId: string, starIndex: number, starType?: string) => void
 }>()
@@ -58,6 +70,7 @@ function shouldCelebrate(event: DrawerCompleteEvent): boolean {
 
 function onContentComplete(event: DrawerCompleteEvent) {
   props.store.sendCompleteEvent(event)
+  logComplete(event)
   // If the completed star carries a treasure reward, collect its key.
   const star = selectedStar.value
   if (star?.content?.treasure && props.onTreasureCollect) {
@@ -66,6 +79,69 @@ function onContentComplete(event: DrawerCompleteEvent) {
     if (pageIndex != null && starIndex != null) {
       props.onTreasureCollect(`${pageIndex}_${starIndex}`, starIndex, star.type)
     }
+  }
+}
+
+/**
+ * Fire the per-interaction completion analytics event. Ported from
+ * epic-labs.component onDrawerEvent — only logged when the interaction reports
+ * isComplete. Payload field names match the source BigQuery schema (snake_case).
+ */
+function logComplete(event: DrawerCompleteEvent) {
+  const analytics = props.analytics
+  if (!analytics) return
+  const pageIndex = props.store.state.pageIndex
+  const starIndex = props.store.state.starIndex
+  if (pageIndex == null || starIndex == null) return
+  const base = { book_id: props.bookId, page_index: pageIndex, star_index: starIndex }
+
+  switch (event.type) {
+    case 'quiz-single': {
+      if (!event.data.isComplete) return
+      analytics.log(EPIC_LABS_QUIZ_SINGLE_COMPLETE, {
+        ...base,
+        correct_count: event.data.correctCount,
+        total_count: event.data.totalCount,
+      })
+      break
+    }
+    case 'quiz-compare': {
+      if (!event.data.isComplete) return
+      analytics.log(EPIC_LABS_QUIZ_COMPARE_COMPLETE, {
+        ...base,
+        correct_count: event.data.correctCount,
+        total_count: event.data.totalCount,
+      })
+      break
+    }
+    case 'flip-match': {
+      if (!event.data.isComplete) return
+      analytics.log(EPIC_LABS_FLIP_MATCH_COMPLETE, {
+        ...base,
+        matched_pairs: event.data.matchedPairs,
+        click_count: event.data.clickCount,
+      })
+      break
+    }
+    case 'drag-fill': {
+      if (!event.data.isComplete) return
+      analytics.log(EPIC_LABS_DRAG_FILL_COMPLETE, {
+        ...base,
+        drag_count: event.data.dragCount,
+      })
+      break
+    }
+    case 'tap-match': {
+      if (!event.data.isComplete) return
+      analytics.log(EPIC_LABS_TAP_MATCH_COMPLETE, {
+        ...base,
+        is_correct: event.data.isCorrect,
+        click_count: event.data.clickCount,
+      })
+      break
+    }
+    default:
+      break
   }
 }
 

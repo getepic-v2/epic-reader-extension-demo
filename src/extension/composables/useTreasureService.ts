@@ -1,7 +1,17 @@
 import { reactive } from 'vue'
 import type { TreasureConfig } from '../types'
 import { createEmitter } from '../utils/emitter'
-import { loadJSON, saveJSON, STORAGE_KEYS } from '../utils/storage'
+
+/**
+ * Persistence adapter. The treasure service stays storage-agnostic; the entry
+ * wires it to localStorage (via the book-interactive-info store) or, later, to
+ * the backend API. Both calls are async-tolerant — failures must not break
+ * the in-memory collection flow.
+ */
+export interface TreasurePersistence {
+  loadCollectedIds(bookId: number | string): string[]
+  saveCollectedIds(bookId: number | string, ids: string[]): void
+}
 
 /**
  * Treasure collection state — keys collected across the book, which together
@@ -53,7 +63,9 @@ export interface TreasureService {
   dispose(): void
 }
 
-export function createTreasureService(): TreasureService {
+export function createTreasureService(
+  persistence?: TreasurePersistence,
+): TreasureService {
   const collectedKeys = new Set<string>()
   let totalTreasures = 0
   let gameUnlockThreshold = 0
@@ -77,12 +89,12 @@ export function createTreasureService(): TreasureService {
   }
 
   function persistNow() {
-    if (currentBookId === undefined) return
-    saveJSON(
-      STORAGE_KEYS.COLLECTED_KEYS,
-      { collectedIds: Array.from(collectedKeys) },
-      currentBookId,
-    )
+    if (currentBookId === undefined || !persistence) return
+    try {
+      persistence.saveCollectedIds(currentBookId, Array.from(collectedKeys))
+    } catch {
+      // persistence failure must not break collection flow
+    }
   }
 
   return {
@@ -206,12 +218,12 @@ export function createTreasureService(): TreasureService {
 
     loadPersisted(bookId) {
       currentBookId = bookId
-      const data = loadJSON<{ collectedIds?: string[] }>(
-        STORAGE_KEYS.COLLECTED_KEYS,
-        {},
-        bookId,
-      )
-      return data.collectedIds ?? []
+      if (!persistence) return []
+      try {
+        return persistence.loadCollectedIds(bookId)
+      } catch {
+        return []
+      }
     },
 
     dispose() {
