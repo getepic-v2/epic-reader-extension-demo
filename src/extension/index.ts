@@ -519,7 +519,6 @@ const MODAL_CSS = `
   width: 100%;
   height: 100%;
   font-family: Arial, sans-serif;
-  overflow: hidden;
 }
 .guide-modal-buddy {
   position: absolute;
@@ -529,6 +528,17 @@ const MODAL_CSS = `
   height: auto;
   z-index: 0;
   pointer-events: none;
+  transform-origin: 50% 100%;
+  transform: translateX(-100%) rotate(-45deg);
+  opacity: 0;
+  animation: guide-buddy-enter 500ms cubic-bezier(0.34, 1.15, 0.64, 1) 300ms
+    forwards;
+}
+@keyframes guide-buddy-enter {
+  to {
+    transform: translateX(0) rotate(0deg);
+    opacity: 1;
+  }
 }
 .guide-modal-container {
   position: relative;
@@ -545,6 +555,15 @@ const MODAL_CSS = `
   gap: 16px;
   height: 100%;
   justify-content: center;
+  transform: scale(0);
+  opacity: 0;
+  animation: guide-modal-pop-in 300ms cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+@keyframes guide-modal-pop-in {
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
 }
 .guide-modal-container h2 {
   margin: 0;
@@ -654,6 +673,16 @@ const MODAL_CSS = `
 .guide-modal-container .epic-btn {
   width: 320px;
   max-width: 100%;
+  animation: guide-breathe 2s ease-in-out infinite;
+}
+@keyframes guide-breathe {
+  0%,
+  100% {
+    transform: scale(0.9);
+  }
+  50% {
+    transform: scale(1.05);
+  }
 }
 .guide-modal-text-button {
   margin-top: 24px;
