@@ -514,11 +514,30 @@ const MODAL_CSS = `
 /* Guide modal — sits inside the host's white modal shell, so no own scrim.
    Ported from guide-modal.component.scss: wrapper is position:relative (the
    host already provides the backdrop + white rounded container). */
+/* Full-screen scrim + centered 720px card, mirroring source's
+   .epic-labs-modal-overlay > .epic-labs-modal--guide structure. The host shell
+   is sized to the viewport (see openModal call), so this overlay covers it;
+   the card sits centered and the buddy can overflow (wrapper is
+   overflow:visible, host shell only clips at the viewport edge). */
+.guide-modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(60, 75, 98, 0.9);
+  border-radius: 12px;
+  font-family: Arial, sans-serif;
+}
 .guide-modal-wrapper {
   position: relative;
-  width: 100%;
-  height: 100%;
-  font-family: Arial, sans-serif;
+  z-index: 1;
+  width: 720px;
+  max-width: calc(100vw - 48px);
+  max-height: 90vh;
+  overflow: visible;
+  background: transparent;
 }
 .guide-modal-buddy {
   position: absolute;
@@ -544,8 +563,6 @@ const MODAL_CSS = `
   position: relative;
   z-index: 1;
   width: 100%;
-  max-width: 720px;
-  margin: 0 auto;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -553,8 +570,9 @@ const MODAL_CSS = `
   padding: 48px 32px 32px;
   box-sizing: border-box;
   gap: 16px;
-  height: 100%;
-  justify-content: center;
+  background: #fff;
+  border-radius: 24px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
   transform: scale(0);
   opacity: 0;
   animation: guide-modal-pop-in 300ms cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
@@ -1356,7 +1374,16 @@ declare const __EXTENSION_GLOBAL_NAME__: string
       // Defer so the host has a chance to mount the modal slot.
       setTimeout(() => {
         if (state.activeModal === 'guide') {
-          context.commands.execute('openModal', { width: 720, height: 560 })
+          // Full-viewport shell: the guide renders its own full-screen scrim
+          // + centered 720px card internally (matching source's
+          // .epic-labs-modal-overlay structure), and the buddy image needs to
+          // overflow the card — only possible when the host shell doesn't
+          // clip it. A viewport-sized shell lets the buddy spill out of the
+          // card without being cut off.
+          context.commands.execute('openModal', {
+            width: window.innerWidth,
+            height: window.innerHeight,
+          })
         }
       }, 300)
     }

@@ -84,13 +84,14 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <div class="guide-modal-wrapper">
-    <img
-      class="guide-modal-buddy"
-      :src="BUDDY_SVG"
-      alt=""
-      aria-hidden="true"
-    />
+  <div class="guide-modal-overlay">
+    <div class="guide-modal-wrapper">
+      <img
+        class="guide-modal-buddy"
+        :src="BUDDY_SVG"
+        alt=""
+        aria-hidden="true"
+      />
     <div class="guide-modal-container">
       <button
         class="guide-modal-close"
@@ -146,5 +147,6 @@ onBeforeUnmount(() => {
     </div>
 
     <audio ref="soundEl" :src="SOUND_PATH" preload="auto"></audio>
+    </div>
   </div>
 </template>
