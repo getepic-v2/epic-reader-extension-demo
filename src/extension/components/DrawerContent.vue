@@ -25,7 +25,7 @@ const props = defineProps<{
 }
 
 .drawer-content {
-  font-family: Arial, sans-serif;
+  font-family: 'Roboto', Arial, sans-serif;
   color: #17324d;
   padding: 24px;
   height: 100%;

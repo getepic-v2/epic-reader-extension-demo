@@ -69,6 +69,46 @@ function getCurrentPageClickVideos(context: ExtensionContext): ClickVideo[] {
   return getCurrentPage(context)?.clickVideos || []
 }
 
+/**
+ * @font-face for the fonts the ported components reference ('Roboto',
+ * 'Mikado'). Paths are host-relative — at runtime they resolve against the
+ * Reader host domain (webqa/prod), where these woff2 files are served.
+ * Declared once in the main document so every shadow root can use the fonts
+ * (font matching is document-scoped, not blocked by shadow encapsulation).
+ * The host already declares these, but the extension is sandboxed in shadow
+ * DOM, so we redeclare to be self-contained.
+ */
+const FONT_FACE = `
+@font-face {
+  font-family: 'Roboto';
+  src: url(/assets/fonts/Roboto/Roboto-Regular-subset.woff2) format('woff2');
+  font-weight: 400;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Roboto';
+  src: url(/assets/fonts/Roboto/updated-fonts/Roboto-Bold-subset.woff2) format('woff2');
+  font-weight: 700;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Mikado';
+  src: url(/assets/fonts/Mikado/MikadoWeb-Bold-subset.woff2) format('woff2');
+  font-weight: 700;
+  font-display: swap;
+}
+`
+
+function injectFontFaces(): void {
+  const id = 'epic-labs-fonts'
+  const doc = document
+  if (doc.getElementById(id)) return
+  const style = doc.createElement('style')
+  style.id = id
+  style.textContent = FONT_FACE
+  doc.head?.appendChild(style)
+}
+
 const STAR_CSS = `
 .star-overlay {
   pointer-events: none;
@@ -125,7 +165,7 @@ const DRAWER_CSS = `
 .drawer-panel {
   width: 100%;
   height: 100%;
-  font-family: Arial, sans-serif;
+  font-family: 'Roboto', Arial, sans-serif;
   overflow: hidden;
 }
 
@@ -410,7 +450,7 @@ const MODAL_CSS = `
   height: 100%;
   display: flex;
   flex-direction: column;
-  font-family: Arial, sans-serif;
+  font-family: 'Roboto', Arial, sans-serif;
 }
 .game-content-header {
   padding: 16px;
@@ -469,7 +509,7 @@ const MODAL_CSS = `
   align-items: center;
   justify-content: center;
   background: #fff;
-  font-family: Arial, sans-serif;
+  font-family: 'Roboto', Arial, sans-serif;
   overflow: visible;
 }
 .video-modal-frame {
@@ -528,7 +568,7 @@ const MODAL_CSS = `
   justify-content: center;
   background: rgba(60, 75, 98, 0.9);
   border-radius: 12px;
-  font-family: Arial, sans-serif;
+  font-family: 'Roboto', Arial, sans-serif;
 }
 .guide-modal-wrapper {
   position: relative;
@@ -730,7 +770,7 @@ const MODAL_CSS = `
   text-align: center;
   padding: 48px 32px 32px;
   box-sizing: border-box;
-  font-family: Arial, sans-serif;
+  font-family: 'Roboto', Arial, sans-serif;
   gap: 12px;
 }
 .mat-dialog-close {
@@ -929,7 +969,7 @@ const MODAL_CSS = `
   align-items: center;
   justify-content: center;
   z-index: 10000;
-  font-family: Arial, sans-serif;
+  font-family: 'Roboto', Arial, sans-serif;
 }
 .tm-scrim {
   position: absolute;
@@ -1032,6 +1072,10 @@ const MODAL_CSS = `
 declare const __EXTENSION_GLOBAL_NAME__: string
 ;(window as any)[__EXTENSION_GLOBAL_NAME__] = {
   activate(context: ExtensionContext) {
+    // Load Roboto/Mikado font faces into the host document so the ported
+    // components' font-family names resolve (paths resolve to the Reader host).
+    injectFontFaces()
+
     // --- Shared services ---
     const drawerStore = createDrawerStore()
     const analytics = createAnalytics(context)
