@@ -71,43 +71,34 @@ function getCurrentPageClickVideos(context: ExtensionContext): ClickVideo[] {
 
 /**
  * @font-face for the fonts the ported components reference ('Roboto',
- * 'Mikado'). Paths are host-relative — at runtime they resolve against the
- * Reader host domain (webqa/prod), where these woff2 files are served.
- * Declared once in the main document so every shadow root can use the fonts
- * (font matching is document-scoped, not blocked by shadow encapsulation).
- * The host already declares these, but the extension is sandboxed in shadow
- * DOM, so we redeclare to be self-contained.
+ * 'Mikado'). Absolute URLs to the production asset domain so the fonts load
+ * regardless of which environment (webqa/prod) the extension runs in.
+ *
+ * IMPORTANT: @font-face is subject to shadow DOM encapsulation — a declaration
+ * in the main document is NOT visible to elements inside a shadow root. So
+ * this string is prepended to every slot's injected CSS (reading-area, drawer,
+ * modal), making the fonts available inside each shadow root that uses them.
  */
 const FONT_FACE = `
 @font-face {
   font-family: 'Roboto';
-  src: url(/assets/fonts/Roboto/Roboto-Regular-subset.woff2) format('woff2');
+  src: url(https://www.getepic.com/assets/fonts/Roboto/Roboto-Regular-subset.woff2) format('woff2');
   font-weight: 400;
   font-display: swap;
 }
 @font-face {
   font-family: 'Roboto';
-  src: url(/assets/fonts/Roboto/updated-fonts/Roboto-Bold-subset.woff2) format('woff2');
+  src: url(https://www.getepic.com/assets/fonts/Roboto/updated-fonts/Roboto-Bold-subset.woff2) format('woff2');
   font-weight: 700;
   font-display: swap;
 }
 @font-face {
   font-family: 'Mikado';
-  src: url(/assets/fonts/Mikado/MikadoWeb-Bold-subset.woff2) format('woff2');
+  src: url(https://www.getepic.com/assets/fonts/Mikado/MikadoWeb-Bold-subset.woff2) format('woff2');
   font-weight: 700;
   font-display: swap;
 }
 `
-
-function injectFontFaces(): void {
-  const id = 'epic-labs-fonts'
-  const doc = document
-  if (doc.getElementById(id)) return
-  const style = doc.createElement('style')
-  style.id = id
-  style.textContent = FONT_FACE
-  doc.head?.appendChild(style)
-}
 
 const STAR_CSS = `
 .star-overlay {
@@ -1072,10 +1063,6 @@ const MODAL_CSS = `
 declare const __EXTENSION_GLOBAL_NAME__: string
 ;(window as any)[__EXTENSION_GLOBAL_NAME__] = {
   activate(context: ExtensionContext) {
-    // Load Roboto/Mikado font faces into the host document so the ported
-    // components' font-family names resolve (paths resolve to the Reader host).
-    injectFontFaces()
-
     // --- Shared services ---
     const drawerStore = createDrawerStore()
     const analytics = createAnalytics(context)
@@ -1168,7 +1155,7 @@ declare const __EXTENSION_GLOBAL_NAME__: string
 
     // --- Reading area: render stars + interaction layers + key/gem overlay ---
     const readingRoot = context.slots.get('reading-area')
-    injectStyles(readingRoot, STAR_CSS, 'epic-star-styles')
+    injectStyles(readingRoot, FONT_FACE + STAR_CSS, 'epic-star-styles')
 
     const starContainer = document.createElement('div')
     starContainer.style.cssText = 'position:absolute;inset:0;pointer-events:none;'
@@ -1265,7 +1252,7 @@ declare const __EXTENSION_GLOBAL_NAME__: string
       if (payload?.mounted) {
         try {
           const drawerRoot = context.slots.get('drawer')
-          injectStyles(drawerRoot, DRAWER_CSS, 'epic-drawer-styles')
+          injectStyles(drawerRoot, FONT_FACE + DRAWER_CSS, 'epic-drawer-styles')
 
           drawerContainer = document.createElement('div')
           drawerContainer.style.cssText = 'width:100%;height:100%;'
@@ -1315,7 +1302,7 @@ declare const __EXTENSION_GLOBAL_NAME__: string
       if (!state.activeModal) return
       try {
         const modalRoot = context.slots.get('modal')
-        injectStyles(modalRoot, MODAL_CSS, 'epic-modal-styles')
+        injectStyles(modalRoot, FONT_FACE + MODAL_CSS, 'epic-modal-styles')
 
         modalContainer = document.createElement('div')
         modalContainer.style.cssText = 'width:100%;height:100%;'
