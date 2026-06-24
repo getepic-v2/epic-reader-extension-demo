@@ -458,91 +458,93 @@ const MODAL_CSS = `
   background: #fff;
 }
 
-/* Video modal */
+/* Video modal — ported from video-modal.component.scss. The host's white
+   shell already frames the modal; the video itself is a centered 16:9 black
+   frame with the skip button hanging below it (bottom:-54px, as in source). */
 .video-modal-container {
   position: relative;
   width: 100%;
   height: 100%;
   display: flex;
-  flex-direction: column;
   align-items: center;
   justify-content: center;
-  background: #000;
+  background: #fff;
   font-family: Arial, sans-serif;
+  overflow: visible;
 }
 .video-modal-frame {
-  width: 100%;
-  height: 100%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-.video-player {
+  position: relative;
+  width: min(100%, calc((100% - 0px) * 16 / 9));
   max-width: 100%;
   max-height: 100%;
+  aspect-ratio: 16 / 9;
+  border-radius: 8px;
+  overflow: hidden;
+  background: #000;
+}
+.video-player {
+  display: block;
+  position: absolute;
+  inset: 0;
   width: 100%;
   height: 100%;
   object-fit: contain;
 }
 .video-modal-skip {
   position: absolute;
-  top: 12px;
-  right: 12px;
-  padding: 8px 20px;
-  font-size: 14px;
+  bottom: -54px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 180px;
+  height: 40px;
+  padding: 0;
+  font-size: 16px;
   font-weight: 700;
-  color: #fff;
-  background: rgba(255, 255, 255, 0.2);
-  border: 1px solid rgba(255, 255, 255, 0.4);
+  color: #0a96e6;
+  background: #fff;
+  border: 1px solid #fff;
   border-radius: 20px;
   cursor: pointer;
   font-family: inherit;
 }
 .video-modal-skip:hover {
-  background: rgba(255, 255, 255, 0.3);
+  background: #f2faff;
 }
 
-/* Guide modal */
+/* Guide modal — sits inside the host's white modal shell, so no own scrim.
+   Ported from guide-modal.component.scss: wrapper is position:relative (the
+   host already provides the backdrop + white rounded container). */
 .guide-modal-wrapper {
   position: relative;
   width: 100%;
   height: 100%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: rgba(0, 0, 0, 0.6);
   font-family: Arial, sans-serif;
+  overflow: hidden;
 }
 .guide-modal-buddy {
   position: absolute;
-  left: 8%;
-  bottom: 0;
-  height: 70%;
+  top: 20px;
+  right: -290px;
+  width: 425px;
+  height: auto;
+  z-index: 0;
   pointer-events: none;
 }
 .guide-modal-container {
   position: relative;
+  z-index: 1;
+  width: 100%;
+  max-width: 720px;
+  margin: 0 auto;
   display: flex;
   flex-direction: column;
   align-items: center;
   text-align: center;
-  background: #fff;
-  border-radius: 24px;
-  padding: 32px 40px;
-  max-width: 560px;
+  padding: 48px 32px 32px;
+  box-sizing: border-box;
   gap: 16px;
-}
-.guide-modal-close {
-  position: absolute;
-  top: 12px;
-  right: 12px;
-  width: 32px;
-  height: 32px;
-  border: none;
-  background: transparent;
-  cursor: pointer;
-  font-size: 22px;
-  color: #9aa7b8;
+  height: 100%;
+  justify-content: center;
 }
 .guide-modal-container h2 {
   margin: 0;
@@ -553,18 +555,28 @@ const MODAL_CSS = `
   position: relative;
   width: 532px;
   max-width: 100%;
-  height: 205px;
+  height: 266px;
+  margin-top: 16px;
+  overflow: hidden;
 }
 .guide-modal-lottie__bg {
   position: absolute;
-  inset: 0;
+  left: 0;
+  right: 0;
+  top: 4%;
+  height: 205px;
   width: 100%;
-  height: 100%;
-  object-fit: contain;
+  object-fit: fill;
+  border-radius: 13px;
+  transform: scale(1.2);
+  transform-origin: center top;
 }
 .guide-modal-lottie__anim {
   position: absolute;
   inset: 0;
+  overflow: hidden;
+  transform: scale(1.3);
+  transform-origin: center top;
 }
 .guide-modal-lottie__appear,
 .guide-modal-lottie__loop {
@@ -572,26 +584,57 @@ const MODAL_CSS = `
   inset: 0;
 }
 .guide-modal-lottie__appear--hidden {
-  display: none;
+  visibility: hidden;
 }
 .guide-modal-lottie__loop {
-  display: none;
+  visibility: hidden;
 }
 .guide-modal-lottie__loop--visible {
-  display: block;
+  visibility: visible;
 }
 .guide-description {
   margin: 0;
-  font-size: 16px;
-  line-height: 1.6;
-  color: #4c5f75;
+  font-size: 20px;
+  line-height: 1.4;
+  letter-spacing: 0.25px;
+  color: #6f8196;
 }
 .guide-modal-star {
   display: inline-block;
+  height: 32px;
+  width: auto;
+  vertical-align: bottom;
+  margin-left: 4px;
+  user-select: none;
+}
+.guide-modal-close {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  z-index: 2;
+  width: 32px;
+  height: 32px;
+  cursor: pointer;
+  border: none;
+  padding: 0;
+  margin: 0;
+  background: transparent;
+}
+.guide-modal-close::before,
+.guide-modal-close::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
   width: 20px;
-  height: 20px;
-  vertical-align: middle;
-  margin: 0 2px;
+  height: 2px;
+  background: #9aa7b8;
+}
+.guide-modal-close::before {
+  transform: translate(-50%, -50%) rotate(45deg);
+}
+.guide-modal-close::after {
+  transform: translate(-50%, -50%) rotate(-45deg);
 }
 .epic-btn {
   padding: 14px 32px;
@@ -608,17 +651,27 @@ const MODAL_CSS = `
   padding: 16px 40px;
   font-size: 18px;
 }
+.guide-modal-container .epic-btn {
+  width: 320px;
+  max-width: 100%;
+}
 .guide-modal-text-button {
-  background: transparent;
+  margin-top: 24px;
+  background: none;
   border: none;
-  color: #9aa7b8;
-  font-size: 14px;
+  padding: 0;
+  color: #0a96e6;
+  font-size: 18px;
+  font-weight: 700;
   cursor: pointer;
   font-family: inherit;
-  text-decoration: underline;
+}
+.guide-modal-text-button:hover {
+  color: #17324d;
 }
 
-/* Book rating modal */
+/* Book rating modal — ported from book-rating-modal.component.scss. Sits in
+   the host's white shell, so no own background; just padding + centered col. */
 .book-rating-modal-container {
   position: relative;
   width: 100%;
@@ -628,7 +681,8 @@ const MODAL_CSS = `
   align-items: center;
   justify-content: center;
   text-align: center;
-  background: #fff;
+  padding: 48px 32px 32px;
+  box-sizing: border-box;
   font-family: Arial, sans-serif;
   gap: 12px;
 }
@@ -658,11 +712,13 @@ const MODAL_CSS = `
   transform: translate(-50%, -50%) rotate(-45deg);
 }
 .book-cover {
-  width: 120px;
-  height: 160px;
+  width: 256px;
+  height: 322px;
+  max-width: 100%;
+  max-height: 45%;
   object-fit: cover;
-  border-radius: 12px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  border-radius: 24px;
+  box-shadow: 0 2px 14px 0 rgba(60, 75, 98, 0.2);
 }
 .book-rating-modal-container h2 {
   margin: 8px 0 0;
@@ -671,34 +727,44 @@ const MODAL_CSS = `
 }
 .book-rating-modal-container .subtitle {
   margin: 0;
-  font-size: 14px;
+  font-size: 18px;
   color: #6f8196;
 }
 .stars-container {
   display: flex;
+  justify-content: center;
   gap: 8px;
-  margin: 8px 0;
+  margin: 24px 0;
 }
 .star-button {
-  width: 44px;
-  height: 44px;
+  width: 64px;
+  height: 64px;
   padding: 0;
   border: none;
   background: transparent;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   cursor: pointer;
 }
 .star-button:disabled {
-  cursor: default;
+  cursor: not-allowed;
+  opacity: 0.6;
 }
 .star-icon {
-  width: 100%;
-  height: 100%;
+  width: 64px;
+  height: 64px;
+  display: block;
 }
 .submit-button {
+  width: 100%;
+  max-width: 320px;
   margin-top: 8px;
 }
 .submit-button--success {
   background: #47b334;
+  border: none;
+  color: #fff;
 }
 
 /* Key/gem/portal overlay (reading-area) */
@@ -805,7 +871,10 @@ const MODAL_CSS = `
   cursor: pointer;
 }
 
-/* Treasure modal (key-ready celebration) */
+/* Treasure modal (key-ready celebration) — ported from treasure-modal.component.scss.
+   Source renders its own full-screen overlay (not a Material Dialog), so we keep
+   position:fixed + scrim to cover the viewport. Content has no white card — the
+   ribbon/key/text sit directly on the scrim, as in source. */
 .tm-overlay {
   position: fixed;
   inset: 0;
@@ -818,67 +887,98 @@ const MODAL_CSS = `
 .tm-scrim {
   position: absolute;
   inset: 0;
-  background: rgba(0, 0, 0, 0.6);
+  background: rgba(60, 75, 98, 0.9);
 }
 .tm-content {
   position: relative;
+  z-index: 1;
+  width: 545px;
+  max-width: 90vw;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 16px;
-  background: #fff;
-  border-radius: 24px;
-  padding: 32px 48px;
+  gap: 0;
   text-align: center;
   opacity: 0;
-  transition: opacity 0.4s ease;
-  max-width: 440px;
+  transform: scale(0);
+  transition: opacity 0.35s ease;
 }
 .tm-content--visible {
   opacity: 1;
+  transform: scale(1);
+  transition: transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.35s ease;
 }
 .tm-title-wrap {
   position: relative;
+  width: 100%;
+  height: 80px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
 }
 .tm-ribbon {
-  width: 80px;
-  height: auto;
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
 }
 .tm-title {
-  margin: 8px 0 0;
-  font-size: 24px;
-  color: #17324d;
+  position: relative;
+  font-family: 'Mikado', Arial, sans-serif;
+  font-size: 32px;
+  font-weight: 700;
+  color: #fff;
+  line-height: 40px;
+  letter-spacing: 0.01em;
+  text-align: center;
+  margin-top: 10px;
 }
 .tm-key-anim {
-  width: 160px;
-  height: 160px;
+  width: 408px;
+  height: 370px;
+  max-width: 80vw;
+  margin-top: -20px;
+  position: relative;
+  z-index: 1;
+  flex-shrink: 0;
 }
 .tm-body-row {
   display: flex;
-  align-items: center;
-  gap: 12px;
+  align-items: flex-end;
+  gap: 18px;
+  margin-top: 24px;
 }
 .tm-key-sm {
-  width: 32px;
-  height: 32px;
+  width: 67px;
+  height: 65px;
+  object-fit: contain;
+  flex-shrink: 0;
 }
 .tm-body {
+  font-family: 'Roboto', Arial, sans-serif;
+  font-size: 20px;
+  font-weight: 400;
+  color: #fff;
+  line-height: 28px;
+  letter-spacing: 0.01em;
   margin: 0;
-  font-size: 14px;
-  line-height: 1.5;
-  color: #4c5f75;
-  text-align: left;
 }
 .tm-btn {
-  padding: 14px 36px;
-  font-size: 16px;
+  margin-top: 24px;
+  width: 320px;
+  max-width: 100%;
+  height: 56px;
+  border-radius: 9999px;
+  border: none;
+  background: #0a96e6;
+  font-family: 'Mikado', Arial, sans-serif;
+  font-size: 20px;
   font-weight: 700;
   color: #fff;
-  background: #fd5533;
-  border: none;
-  border-radius: 24px;
+  letter-spacing: 0.01em;
   cursor: pointer;
-  font-family: inherit;
+  flex-shrink: 0;
 }
 `
 
