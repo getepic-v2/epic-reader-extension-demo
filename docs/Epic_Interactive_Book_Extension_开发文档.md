@@ -300,9 +300,53 @@ context.analytics.log('game_over', { score: 850, chapter: 3 })
 
 ---
 
-## 五、构建配置
+## 五、TypeScript 类型支持
 
-### 5.1 构建要求
+我们提供了官方的 TypeScript 类型定义包，包含 Interactive Book Extension API 的完整类型。
+
+**安装：**
+
+在项目根目录创建 `.npmrc` 文件：
+
+```
+@getepic-v2:registry=https://npm.pkg.github.com
+```
+
+然后安装：
+
+```bash
+npm install -D @getepic-v2/reader-extension-types
+```
+
+**使用：**
+
+```typescript
+import type {
+  InteractiveBookContext,
+  InteractiveExtension,
+} from '@getepic-v2/reader-extension-types'
+
+const extension: InteractiveExtension = {
+  activate(context: InteractiveBookContext) {
+    const container = context.slots.get('interactive-stage')
+    const bookId = context.data.getBookId()
+
+    // 渲染你的应用...
+
+    return () => {
+      // 清理
+    }
+  }
+}
+```
+
+> 类型包同时包含 Reader Extension 和 Interactive Book Extension 两套 API 的类型定义，按需导入即可。
+
+---
+
+## 六、构建配置
+
+### 6.1 构建要求
 
 | 项目 | 要求 |
 |------|------|
@@ -314,7 +358,7 @@ context.analytics.log('game_over', { score: 850, chapter: 3 })
 | 重型依赖 | 使用动态 `import()` 按需加载，减小主文件体积 |
 | 资源路径 | 使用相对路径，构建时由我们注入 `--base` CDN 路径 |
 
-### 5.2 Vite 构建配置示例
+### 6.2 Vite 构建配置示例
 
 ```typescript
 // vite.config.ts
@@ -341,7 +385,7 @@ export default defineConfig({
 })
 ```
 
-### 5.3 重型依赖按需加载示例
+### 6.3 重型依赖按需加载示例
 
 ```javascript
 // 不要静态 import 重型库
@@ -356,9 +400,9 @@ async function loadGlobe() {
 
 ---
 
-## 六、注意事项
+## 七、注意事项
 
-### 6.1 资源路径
+### 7.1 资源路径
 
 代码中字符串形式的资源路径**不能使用相对路径**。扩展 JS 是被宿主页面动态加载的，相对路径会相对宿主页面解析，导致指向错误地址：
 
@@ -374,7 +418,7 @@ img.src = context.config.assetBaseUrl.replace(/\/$/, '') + '/pictures/bg.jpg'
 
 > 通过静态 `import` 引用的资源（如 `import img from './pictures/bg.jpg'`）不受此影响，Vite 打包时会自动处理路径。
 
-### 6.2 样式隔离
+### 7.2 样式隔离
 
 | 规则 | 说明 |
 |------|------|
@@ -382,7 +426,7 @@ img.src = context.config.assetBaseUrl.replace(/\/$/, '') + '/pictures/bg.jpg'
 | 样式注入 | 必须通过 `<style>` 元素插入到 ShadowRoot |
 | JS 不隔离 | ShadowDOM 只隔离 CSS，请勿操作宿主 DOM |
 
-### 6.3 清理函数
+### 7.3 清理函数
 
 `activate` **必须**返回一个清理函数：
 
@@ -398,7 +442,7 @@ activate: function(context) {
 }
 ```
 
-### 6.4 全局变量命名
+### 7.4 全局变量命名
 
 扩展注册到 `window` 上的变量名必须**全局唯一**，建议格式：`[公司名][产品名]Book`
 
@@ -409,7 +453,7 @@ window.AcmeAdventureBook = { activate: ... }
 
 此名称需要与我们后台配置的 `globalName` 字段一致。
 
-### 6.5 不要设置 base 配置
+### 7.5 不要设置 base 配置
 
 ```javascript
 // ❌ 不要在 vite.config.ts 中设置 base
@@ -421,9 +465,9 @@ window.AcmeAdventureBook = { activate: ... }
 
 ---
 
-## 七、交付与上线
+## 八、交付与上线
 
-### 7.1 交付物清单
+### 8.1 交付物清单
 
 | 文件 | 必须 | 说明 |
 |------|------|------|
@@ -431,7 +475,7 @@ window.AcmeAdventureBook = { activate: ... }
 | 媒体资源 | **是** | 图片、视频、音频等静态资源，我们负责部署到 CDN |
 | 关卡数据（labData） | 可选 | 如有动态内容数据，提供 JSON 格式，我们写入书籍数据库 |
 
-### 7.2 上线流程
+### 8.2 上线流程
 
 ```
 第三方提交源码 + 媒体资源（+ 互动数据，如有）
