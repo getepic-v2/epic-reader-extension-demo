@@ -27,6 +27,7 @@ import type { EpicLabsInteractiveInfo } from './composables/useBookInteractiveIn
 import { createInteractionMemory } from './composables/useInteractionMemory'
 import { createMotionActiveOverlay } from './composables/useMotionActiveOverlay'
 import { loadJSON, loadFlag, saveFlag, STORAGE_KEYS } from './utils/storage'
+import * as V from './styles/variables'
 import {
   EPIC_LABS_STAR_CLICK,
   EPIC_LABS_PAGE_EXPOSURE,
@@ -156,7 +157,7 @@ const DRAWER_CSS = `
 .drawer-panel {
   width: 100%;
   height: 100%;
-  font-family: 'Roboto', Arial, sans-serif;
+  font-family: ${V.FONT_PRIMARY};
   overflow: hidden;
 }
 
@@ -441,7 +442,7 @@ const MODAL_CSS = `
   height: 100%;
   display: flex;
   flex-direction: column;
-  font-family: 'Roboto', Arial, sans-serif;
+  font-family: ${V.FONT_PRIMARY};
 }
 .game-content-header {
   padding: 16px;
@@ -500,7 +501,7 @@ const MODAL_CSS = `
   align-items: center;
   justify-content: center;
   background: #fff;
-  font-family: 'Roboto', Arial, sans-serif;
+  font-family: ${V.FONT_PRIMARY};
   overflow: visible;
 }
 .video-modal-frame {
@@ -557,9 +558,9 @@ const MODAL_CSS = `
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(60, 75, 98, 0.9);
+  background: ${V.MODAL_BACKDROP};
   border-radius: 12px;
-  font-family: 'Roboto', Arial, sans-serif;
+  font-family: ${V.FONT_PRIMARY};
 }
 .guide-modal-wrapper {
   position: relative;
@@ -601,9 +602,9 @@ const MODAL_CSS = `
   padding: 48px 32px 32px;
   box-sizing: border-box;
   gap: 16px;
-  background: #fff;
-  border-radius: 24px;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
+  background: ${V.C_WHITE};
+  border-radius: ${V.R_M};
+  box-shadow: ${V.SHADOW_DISTANT};
   transform: scale(0);
   opacity: 0;
   animation: guide-modal-pop-in 300ms cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
@@ -616,8 +617,8 @@ const MODAL_CSS = `
 }
 .guide-modal-container h2 {
   margin: 0;
-  font-size: 26px;
-  color: #17324d;
+  /* Source sets only margin:0 — inherits body (Roboto, $epic-dark-silver). */
+  color: ${V.C_DARK_SILVER};
 }
 .guide-modal-lottie {
   position: relative;
@@ -665,7 +666,7 @@ const MODAL_CSS = `
   font-size: 20px;
   line-height: 1.4;
   letter-spacing: 0.25px;
-  color: #6f8196;
+  color: ${V.C_DARK_SILVER};
 }
 .guide-modal-star {
   display: inline-block;
@@ -696,7 +697,7 @@ const MODAL_CSS = `
   left: 50%;
   width: 20px;
   height: 2px;
-  background: #9aa7b8;
+  background: ${V.C_SILVER};
 }
 .guide-modal-close::before {
   transform: translate(-50%, -50%) rotate(45deg);
@@ -705,19 +706,40 @@ const MODAL_CSS = `
   transform: translate(-50%, -50%) rotate(-45deg);
 }
 .epic-btn {
-  padding: 14px 32px;
-  font-size: 16px;
-  font-weight: 700;
-  color: #fff;
-  background: #fd5533;
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: ${V.BTN_M_PAD};
+  font-family: ${V.BTN_FONT};
+  font-size: ${V.BTN_M_FONT_SIZE};
+  line-height: ${V.BTN_M_LINE_HEIGHT};
+  font-weight: ${V.BTN_WEIGHT};
+  color: ${V.BTN_COLOR};
+  background-color: ${V.BTN_BG};
   border: none;
-  border-radius: 24px;
+  border-radius: ${V.BTN_RADIUS};
   cursor: pointer;
-  font-family: inherit;
+  white-space: nowrap;
+  transition: all 0.1s ease-in-out;
+}
+.epic-btn:not([disabled]):hover {
+  color: ${V.BTN_COLOR};
+  background-color: ${V.BTN_BG_HOVER};
+}
+.epic-btn:disabled {
+  color: ${V.BTN_COLOR};
+  background-color: ${V.BTN_DISABLED_BG};
 }
 .epic-btn--l {
-  padding: 16px 40px;
-  font-size: 18px;
+  padding: ${V.BTN_L_PAD};
+  font-size: ${V.BTN_L_FONT_SIZE};
+  line-height: ${V.BTN_L_LINE_HEIGHT};
+}
+.epic-btn--secondary {
+  color: ${V.C_EXCLAIM_BLUE};
+  background-color: ${V.C_WHITE};
+  border: 2px solid ${V.C_EXCLAIM_BLUE};
 }
 .guide-modal-container .epic-btn {
   width: 320px;
@@ -738,14 +760,14 @@ const MODAL_CSS = `
   background: none;
   border: none;
   padding: 0;
-  color: #0a96e6;
+  color: ${V.C_EXCLAIM_BLUE};
   font-size: 18px;
   font-weight: 700;
   cursor: pointer;
   font-family: inherit;
 }
 .guide-modal-text-button:hover {
-  color: #17324d;
+  color: ${V.C_DARK_BLUE};
 }
 
 /* Book rating modal — ported from book-rating-modal.component.scss. Sits in
@@ -761,7 +783,7 @@ const MODAL_CSS = `
   text-align: center;
   padding: 48px 32px 32px;
   box-sizing: border-box;
-  font-family: 'Roboto', Arial, sans-serif;
+  font-family: ${V.FONT_PRIMARY};
   gap: 12px;
 }
 .mat-dialog-close {
@@ -781,7 +803,7 @@ const MODAL_CSS = `
   left: 50%;
   width: 20px;
   height: 2px;
-  background: #9aa7b8;
+  background: ${V.C_SILVER};
 }
 .mat-dialog-close::before {
   transform: translate(-50%, -50%) rotate(45deg);
@@ -795,18 +817,18 @@ const MODAL_CSS = `
   max-width: 100%;
   max-height: 45%;
   object-fit: cover;
-  border-radius: 24px;
-  box-shadow: 0 2px 14px 0 rgba(60, 75, 98, 0.2);
+  border-radius: ${V.R_L};
+  box-shadow: ${V.SHADOW_DISTANT};
 }
 .book-rating-modal-container h2 {
   margin: 8px 0 0;
   font-size: 22px;
-  color: #17324d;
+  color: ${V.C_DARK_SILVER};
 }
 .book-rating-modal-container .subtitle {
   margin: 0;
   font-size: 18px;
-  color: #6f8196;
+  color: ${V.C_DARK_SILVER};
 }
 .stars-container {
   display: flex;
@@ -960,12 +982,12 @@ const MODAL_CSS = `
   align-items: center;
   justify-content: center;
   z-index: 10000;
-  font-family: 'Roboto', Arial, sans-serif;
+  font-family: ${V.FONT_PRIMARY};
 }
 .tm-scrim {
   position: absolute;
   inset: 0;
-  background: rgba(60, 75, 98, 0.9);
+  background: ${V.MODAL_BACKDROP};
 }
 .tm-content {
   position: relative;
@@ -1003,7 +1025,7 @@ const MODAL_CSS = `
 }
 .tm-title {
   position: relative;
-  font-family: 'Mikado', Arial, sans-serif;
+  font-family: ${V.FONT_SECONDARY};
   font-size: 32px;
   font-weight: 700;
   color: #fff;
@@ -1034,7 +1056,7 @@ const MODAL_CSS = `
   flex-shrink: 0;
 }
 .tm-body {
-  font-family: 'Roboto', Arial, sans-serif;
+  font-family: ${V.FONT_PRIMARY};
   font-size: 20px;
   font-weight: 400;
   color: #fff;
@@ -1049,8 +1071,8 @@ const MODAL_CSS = `
   height: 56px;
   border-radius: 9999px;
   border: none;
-  background: #0a96e6;
-  font-family: 'Mikado', Arial, sans-serif;
+  background: ${V.C_EXCLAIM_BLUE};
+  font-family: ${V.FONT_SECONDARY};
   font-size: 20px;
   font-weight: 700;
   color: #fff;
