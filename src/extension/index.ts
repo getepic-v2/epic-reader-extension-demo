@@ -102,6 +102,11 @@ const FONT_FACE = `
 `
 
 const STAR_CSS = `
+.star-container-root {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
 .star-overlay {
   pointer-events: none;
   z-index: 1;
@@ -110,6 +115,7 @@ const STAR_CSS = `
   position: relative;
   width: 100%;
   height: 100%;
+  container-type: size;
 }
 .star-button {
   position: absolute;
@@ -128,12 +134,8 @@ const STAR_CSS = `
 }
 .star-lottie {
   display: block;
-  width: 100%;
-  height: 100%;
   position: relative;
   z-index: 1;
-  transform-origin: 50% 70%;
-  animation: star-breathe 2.6s ease-in-out infinite;
 }
 .game-lottie {
   display: block;
@@ -146,14 +148,212 @@ const STAR_CSS = `
 }
 .star-button--star .star-lottie {
   transform-origin: 50% 70%;
+  animation: star-icon-breathe 2.6s ease-in-out infinite;
 }
-@keyframes star-breathe {
-  0%, 100% { transform: scale(0.5); }
+.drag-fill-drop-zone {
+  position: absolute;
+  pointer-events: auto;
+  box-sizing: border-box;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.drag-fill-drop-zone__btn {
+  display: flex;
+  align-items: center;
+  height: 5.8cqh;
+  pointer-events: none;
+  transition: transform 0.15s ease;
+  transform-origin: center center;
+}
+.drag-fill-drop-zone:hover .drag-fill-drop-zone__btn {
+  transform: scale(1.15);
+}
+.drag-fill-drop-zone__plus {
+  width: 5.8cqh;
+  height: 5.8cqh;
+  border-radius: 50%;
+  background: ${V.C_EXCLAIM_BLUE};
+  color: white;
+  font-family: ${V.FONT_PRIMARY};
+  font-size: 3.8cqh;
+  font-weight: 700;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  position: relative;
+  z-index: 1;
+}
+.drag-fill-drop-zone__label {
+  background: white;
+  border: 2px solid ${V.C_EXCLAIM_BLUE};
+  border-radius: 9999px;
+  margin-left: -5.8cqh;
+  padding: 0 1.8cqh 0 7.6cqh;
+  height: 5.8cqh;
+  display: flex;
+  align-items: center;
+  font-family: ${V.FONT_SECONDARY};
+  font-size: 2.5cqh;
+  font-weight: 700;
+  color: ${V.C_DARK_SILVER};
+  white-space: nowrap;
+  letter-spacing: 0.025em;
+}
+.drag-fill-drop-zone--placed {
+  pointer-events: none;
+}
+.drag-fill-drop-zone--placed .drag-fill-drop-zone__btn {
+  display: none;
+}
+.drag-fill-placed-item {
+  position: absolute;
+  object-fit: contain;
+  pointer-events: none;
+}
+.hotspot-region {
+  position: absolute;
+  pointer-events: auto;
+  background: transparent;
+  border: 5px solid #ccecff;
+  padding: 0;
+  cursor: pointer;
+  border-radius: 38px;
+  box-sizing: border-box;
+  overflow: visible;
+  transition: border-color 0.15s ease;
+}
+.hotspot-region--correct:active {
+  background: rgba(204, 236, 255, 0.18);
+}
+.hotspot-region--wrong:active {
+  background: rgba(204, 236, 255, 0.12);
+}
+.hotspot-region--tapped {
+  cursor: default;
+  pointer-events: none;
+}
+.hotspot-region--tapped .hotspot-region__cursor,
+.hotspot-region--tapped-correct .hotspot-region__cursor,
+.hotspot-region--tapped-wrong .hotspot-region__cursor {
+  display: none;
+}
+.hotspot-region--tapped-correct {
+  border-color: #b2d338;
+}
+.hotspot-region--tapped-wrong {
+  border-color: #e2195d;
+}
+.hotspot-region__cursor {
+  display: block;
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 40px;
+  height: 48px;
+  pointer-events: none;
+  background-color: #ccecff;
+  mask: url('/assets/epic-labs/drawer/hotspot-tap-icon.svg') no-repeat center / contain;
+  -webkit-mask: url('/assets/epic-labs/drawer/hotspot-tap-icon.svg') no-repeat center / contain;
+  animation: hotspot-cursor-breathe 2s ease-in-out infinite;
+  transition: background-color 0.15s ease;
+}
+.click-video-button {
+  position: absolute;
+  pointer-events: auto;
+  width: 8%;
+  height: 8%;
+  padding: 0;
+  cursor: pointer;
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  transform: translate(-36%, -32%);
+  line-height: 0;
+  z-index: 0;
+}
+.click-video-icon {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: block;
+  position: relative;
+  z-index: 1;
+  transform-origin: 50% 70%;
+  animation: click-video-breathe 2.6s ease-in-out infinite;
+}
+@keyframes click-video-breathe {
+  0%, 100% { transform: scale(0.85); }
+  50% { transform: scale(1); }
+}
+@keyframes hotspot-cursor-breathe {
+  0%, 100% { transform: translate(-50%, -50%) scale(0.85); }
+  50% { transform: translate(-50%, -50%) scale(1.15); }
+}
+@keyframes star-icon-breathe {
+  0% { transform: scale(0.5); }
   50% { transform: scale(0.54); }
+  100% { transform: scale(0.5); }
+}
+`
+
+const EPIC_BUTTON_CSS = `
+button {
+  font-family: ${V.FONT_PRIMARY};
+}
+.epic-btn {
+  color: ${V.BTN_COLOR};
+  font-family: ${V.BTN_FONT};
+  font-weight: ${V.BTN_WEIGHT};
+  background-color: ${V.BTN_BG};
+  box-sizing: border-box;
+  border: none;
+  border-radius: ${V.BTN_RADIUS};
+  outline: none;
+  cursor: pointer;
+  transition: all 0.1s ease-in-out;
+  white-space: nowrap;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: ${V.BTN_M_FONT_SIZE};
+  line-height: ${V.BTN_M_LINE_HEIGHT};
+  padding: ${V.BTN_M_PAD};
+}
+.epic-btn:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px rgb(0, 95, 204);
+}
+.epic-btn:focus:not(:focus-visible) {
+  outline: none;
+  box-shadow: none;
+}
+.epic-btn:not([disabled]):hover {
+  color: ${V.BTN_COLOR};
+  background-color: ${V.BTN_BG_HOVER};
+}
+.epic-btn:disabled {
+  color: ${V.BTN_COLOR};
+  background-color: ${V.BTN_DISABLED_BG};
+}
+.epic-btn--l {
+  font-family: ${V.FONT_SECONDARY};
+  font-weight: 400;
+  font-size: ${V.BTN_L_FONT_SIZE};
+  line-height: ${V.BTN_L_LINE_HEIGHT};
+  padding: ${V.BTN_L_PAD};
 }
 `
 
 const DRAWER_CSS = `
+.drawer-panel,
+.drawer-panel * {
+  box-sizing: border-box;
+}
 .drawer-panel {
   width: 100%;
   height: 100%;
@@ -162,102 +362,101 @@ const DRAWER_CSS = `
 }
 
 /* Multiple Choice */
-.mc-container {
+.multiple-choice-container {
   height: 100%;
   width: 100%;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 24px;
+  gap: 32px;
   padding: 16px;
-  background: #3F1E56;
-  box-sizing: border-box;
+  background: var(--mc-bg-color, ${V.C_WHITE});
 }
-.mc-question {
-  font-size: 22px;
+.multiple-choice-container .question-text {
+  font-size: 28px;
   font-weight: 700;
-  line-height: 1.3;
-  color: #FD5533;
+  line-height: 32px;
+  color: var(--mc-question-color, ${V.C_EXCLAIM_BLUE});
   text-align: center;
   margin: 0;
 }
-.mc-options {
+.multiple-choice-container .options-container {
   display: flex;
   flex-direction: column;
   gap: 8px;
   width: 100%;
 }
-.mc-option {
+.multiple-choice-container .option-button {
   width: 100%;
   padding: 12px 16px;
-  font-size: 14px;
+  font-size: 16px;
   font-weight: 700;
-  line-height: 1.4;
-  color: #3c4b62;
+  line-height: 22px;
+  letter-spacing: 0.25px;
+  color: ${V.C_DARK_SILVER};
   background: #f9fafd;
-  border: 3px solid transparent;
-  border-radius: 12px;
-  box-shadow: 0 1px 3px rgba(60, 75, 98, 0.15);
+  border: 4px solid transparent;
+  border-radius: ${V.R_M};
+  box-shadow: ${V.SHADOW_SUBTLE};
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: all 0.3s ease;
   text-align: left;
-  font-family: inherit;
+  display: flex;
+  align-items: center;
+  gap: 12px;
 }
-.mc-option:hover:not(:disabled) {
-  background: #f2faff;
-  border-color: #FD5533;
+.multiple-choice-container .option-button:hover:not(:disabled) {
+  background: var(--mc-option-selected-bg-color, #f2faff);
+  border-color: var(--mc-question-color, ${V.C_EXCLAIM_BLUE});
 }
-.mc-option:disabled {
+.multiple-choice-container .option-button:disabled {
   cursor: not-allowed;
+  background: #f9fafd;
   box-shadow: none;
   color: #bbcbe4;
 }
-.mc-option.selected {
-  background: #f2faff;
-  border-color: #FD5533;
+.multiple-choice-container .option-button.selected {
+  background: var(--mc-option-selected-bg-color, #f2faff);
+  border-color: var(--mc-question-color, ${V.C_EXCLAIM_BLUE});
   box-shadow: none;
 }
-.mc-option.correct {
+.multiple-choice-container .option-button.correct {
   background: #edfcb4;
   border-color: #008845;
-  color: #008845;
   box-shadow: none;
+  color: #008845;
 }
-.mc-option.incorrect {
+.multiple-choice-container .option-button.incorrect {
   background: #ffe8f0;
   border-color: #e2195d;
-  color: #e2195d;
   box-shadow: none;
+  color: #e2195d;
 }
-.mc-action {
+.multiple-choice-container .option-text {
+  flex: 1;
+}
+.multiple-choice-container .drawer-action {
   width: 100%;
-  padding: 14px 24px;
-  font-size: 16px;
-  font-weight: 700;
-  color: #fff;
-  background: #FD5533;
-  border: none;
-  border-radius: 24px;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  font-family: inherit;
+  background: var(--mc-question-color, ${V.C_EXCLAIM_BLUE});
+  color: var(--mc-action-text-color, ${V.C_WHITE});
 }
-.mc-action:disabled {
-  background: #FF9670;
-  cursor: not-allowed;
-}
-.mc-action--success {
+.multiple-choice-container .drawer-action.drawer-action--success {
   background: #47b334;
+  border: none;
+  color: ${V.C_WHITE};
 }
-.mc-action--fail {
-  background: #FF9670;
+.multiple-choice-container .drawer-action.epic-btn:disabled {
+  background: var(--mc-action-disabled-bg-color, #ccecff);
+  color: var(--mc-action-disabled-text-color, ${V.C_WHITE});
+  cursor: not-allowed;
 }
 
 /* Flashcard */
 .flashcard-container {
   width: 100%;
   height: 100%;
+  position: relative;
   perspective: 1000px;
 }
 .flashcard-container.revealed .flashcard-flip {
@@ -279,138 +478,139 @@ const DRAWER_CSS = `
   align-items: center;
   justify-content: center;
   gap: 32px;
-  padding: 24px;
-  border-radius: 0;
+  padding: 16px;
+  background-repeat: no-repeat;
+  background-size: cover;
+  background-position: center;
 }
 .flashcard-back {
   transform: rotateY(180deg);
 }
-.flashcard-text {
+.flashcard-face p {
   margin: 0;
-  color: #fff;
+  color: var(--flashcard-text-color, ${V.C_EXCLAIM_BLUE});
   text-align: center;
-  font-size: 24px;
+  font-family: ${V.FONT_SECONDARY};
+  font-size: 28px;
+  font-style: normal;
   font-weight: 700;
-  line-height: 1.3;
-  text-shadow: 0 1px 4px rgba(0,0,0,0.2);
+  line-height: 32px;
+  letter-spacing: 0.25px;
 }
-.flashcard-btn {
-  padding: 14px 32px;
-  font-size: 16px;
-  font-weight: 700;
-  color: #667eea;
-  background: #fff;
-  border: none;
-  border-radius: 24px;
-  cursor: pointer;
-  transition: transform 0.2s ease;
-  font-family: inherit;
+.flashcard-face .epic-btn {
+  color: var(--flashcard-button-text-color, #ffffff);
+  background-color: var(--flashcard-button-bg-color, ${V.C_EXCLAIM_BLUE});
+  border-color: var(--flashcard-button-bg-color, ${V.C_EXCLAIM_BLUE});
 }
-.flashcard-btn:hover:not(:disabled) {
-  transform: scale(1.02);
-}
-.flashcard-btn:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
+.flashcard-face .epic-btn:not([disabled]):hover,
+.flashcard-face .epic-btn:disabled {
+  color: var(--flashcard-button-text-color, #ffffff);
+  background-color: var(--flashcard-button-bg-color, ${V.C_EXCLAIM_BLUE});
+  border-color: var(--flashcard-button-bg-color, ${V.C_EXCLAIM_BLUE});
 }
 
 /* Puzzle */
 .puzzle-container {
+  position: relative;
   width: 100%;
   height: 100%;
+  padding: 16px;
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: 16px;
-  box-sizing: border-box;
 }
-.puzzle-preview {
+.puzzle-container h2 {
+  margin: 0;
+}
+.puzzle-container--complete {
+  justify-content: center;
+}
+.puzzle-complete-title {
+  position: absolute;
+  color: ${V.C_EXCLAIM_BLUE};
+  text-align: center;
+}
+.puzzle-canvas {
   width: 100%;
   height: 100%;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  transform: translateY(0);
+  transition: transform 0.5s ease;
+}
+.puzzle-container--complete .puzzle-canvas {
+  width: auto;
+  height: auto;
+  max-width: 100%;
+  max-height: 100%;
+  transform: translateY(-25%);
+}
+.puzzle-preview {
+  position: absolute;
+  left: 0;
+  top: 0;
+  height: 100%;
+  width: 100%;
+}
+.puzzle-preview-content {
+  height: 100%;
+  width: 100%;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 24px;
+  gap: 32px;
+  padding: 16px;
 }
 .puzzle-preview-title {
   text-align: center;
-  font-size: 18px;
-  font-weight: 700;
-  color: #17324d;
-  margin: 0;
 }
-.puzzle-preview-img {
-  width: min(100%, 280px);
+.puzzle-preview img {
+  width: min(100%, 360px);
   aspect-ratio: 1;
+  height: auto;
   object-fit: contain;
+  display: block;
   border-radius: 16px;
   background: #f9fafd;
 }
-.puzzle-btn {
-  padding: 14px 32px;
-  font-size: 16px;
-  font-weight: 700;
-  color: #fff;
-  background: #0a96e6;
-  border: none;
-  border-radius: 24px;
-  cursor: pointer;
-  font-family: inherit;
-}
-.puzzle-grid {
-  width: 100%;
-  flex: 1;
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  grid-template-rows: repeat(3, 1fr);
-  gap: 2px;
-  position: relative;
-  max-width: 320px;
-  aspect-ratio: 1;
-  margin: 0 auto;
-}
-.puzzle-piece {
-  background-size: 300% 300%;
-  border-radius: 4px;
-  cursor: grab;
-  transition: transform 0.15s ease, box-shadow 0.15s ease;
-}
-.puzzle-piece:active {
-  cursor: grabbing;
-  transform: scale(1.05);
-  box-shadow: 0 4px 12px rgba(0,0,0,0.2);
-  z-index: 1;
-}
-.puzzle-piece--correct {
-  cursor: default;
-  border-radius: 0;
-  gap: 0;
-}
-.puzzle-complete {
+.puzzle-container .puzzle-complete {
   position: absolute;
-  inset: 0;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 16px;
-  background: rgba(255,255,255,0.85);
-  border-radius: 8px;
-}
-.puzzle-complete-title {
-  font-size: 24px;
-  font-weight: 700;
-  color: #0a96e6;
-  margin: 0;
-}
-.puzzle-loading {
-  width: 100%;
-  height: 100%;
+  bottom: 12px;
+  left: 12px;
   display: flex;
   align-items: center;
-  justify-content: center;
-  color: #6f8196;
+  gap: 12px;
+  background: rgba(0, 0, 0, 0.5);
+  color: #ffffff;
+  padding: 6px 10px;
+  border-radius: 6px;
+}
+.puzzle-container .puzzle-restart {
+  border: none;
+  background: #0a96e6;
+  color: #ffffff;
+  padding: 6px 10px;
+  cursor: pointer;
+}
+.puzzle-empty {
+  color: #666666;
+  font-size: 14px;
+}
+.puzzle-complete-actions {
+  position: absolute;
+}
+.puzzle-container .drawer-action {
+  position: absolute;
+  right: 12px;
+  bottom: 12px;
+  border: none;
+  background: #0a96e6;
+  color: #ffffff;
+  padding: 8px 14px;
+  cursor: pointer;
+  border-radius: 4px;
 }
 
 /* Info fallback */
@@ -705,37 +905,6 @@ const MODAL_CSS = `
 .guide-modal-close::after {
   transform: translate(-50%, -50%) rotate(-45deg);
 }
-.epic-btn {
-  box-sizing: border-box;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  padding: ${V.BTN_M_PAD};
-  font-family: ${V.BTN_FONT};
-  font-size: ${V.BTN_M_FONT_SIZE};
-  line-height: ${V.BTN_M_LINE_HEIGHT};
-  font-weight: ${V.BTN_WEIGHT};
-  color: ${V.BTN_COLOR};
-  background-color: ${V.BTN_BG};
-  border: none;
-  border-radius: ${V.BTN_RADIUS};
-  cursor: pointer;
-  white-space: nowrap;
-  transition: all 0.1s ease-in-out;
-}
-.epic-btn:not([disabled]):hover {
-  color: ${V.BTN_COLOR};
-  background-color: ${V.BTN_BG_HOVER};
-}
-.epic-btn:disabled {
-  color: ${V.BTN_COLOR};
-  background-color: ${V.BTN_DISABLED_BG};
-}
-.epic-btn--l {
-  padding: ${V.BTN_L_PAD};
-  font-size: ${V.BTN_L_FONT_SIZE};
-  line-height: ${V.BTN_L_LINE_HEIGHT};
-}
 .epic-btn--secondary {
   color: ${V.C_EXCLAIM_BLUE};
   background-color: ${V.C_WHITE};
@@ -869,106 +1038,172 @@ const MODAL_CSS = `
 
 /* Key/gem/portal overlay (reading-area) */
 .key-gem-overlay {
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  z-index: 2;
+  display: contents;
 }
 .key-overlay {
   position: absolute;
-  left: 50%;
-  bottom: 8%;
-  transform: translateX(-50%);
-  width: 220px;
-  height: 120px;
-  pointer-events: none;
+  right: 5%;
+  top: 5%;
+  height: 13cqh;
+  aspect-ratio: 1;
+  pointer-events: auto;
+  cursor: default;
+  opacity: 0.4;
+  transition: opacity 0.2s ease;
 }
-.key-overlay__wrap {
-  position: relative;
+.key-overlay:hover,
+.key-overlay--animating {
+  opacity: 1;
+}
+.key-overlay__base {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: white;
+  box-shadow: ${V.SHADOW_DISTANT};
+  z-index: 0;
+}
+.key-overlay__base::before {
+  content: '';
+  position: absolute;
+  inset: 4%;
+  border-radius: 50%;
+  background: #c9f6f9;
+}
+.key-overlay__key-wrap {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  height: 82%;
+  aspect-ratio: 179 / 260;
+  z-index: 1;
+}
+.key-overlay__img {
   width: 100%;
-  height: 100%;
+  height: auto;
+  display: block;
+  position: relative;
+  z-index: 1;
 }
-.key-overlay__base,
-.key-overlay__key {
+.key-overlay__img--no-shadow {
+  filter: none;
+}
+.key-overlay__img--lottie {
   position: absolute;
-  left: 50%;
-  top: 50%;
-  transform: translate(-50%, -50%);
-}
-.key-overlay__key {
-  width: 70%;
-  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3));
-}
-.key-overlay__key--shine {
-  filter: drop-shadow(0 0 8px rgba(255, 220, 100, 0.8));
-}
-.key-overlay__shine {
-  position: absolute;
-  left: 50%;
-  top: 50%;
-  transform: translate(-50%, -50%);
-  width: 70%;
-  height: 70%;
+  inset: 0;
+  transform: scale(1.4) translateY(-3%);
+  transform-origin: center;
 }
 .key-overlay__gem {
   position: absolute;
-  top: 30%;
-  width: 24px;
-  height: 24px;
+  transform: translate(-50%, -50%) rotate(var(--gem-rotate, 0deg));
   opacity: 0;
-  transition: opacity 0.3s ease;
+  transition: opacity 0.4s ease;
+  z-index: 2;
 }
 .key-overlay__gem--0 {
   left: 21%;
+  top: 30%;
+  width: 18%;
+  --gem-scale: 1;
+  --gem-offset-x: 0px;
+  --gem-offset-y: 0px;
+  --gem-rotate: -18deg;
 }
 .key-overlay__gem--1 {
   left: 49.5%;
+  top: 30%;
+  width: 23%;
+  --gem-scale: 1;
+  --gem-offset-x: 0px;
+  --gem-offset-y: 0px;
 }
 .key-overlay__gem--2 {
   left: 81.5%;
+  top: 31%;
+  width: 19%;
+  --gem-scale: 1;
+  --gem-offset-x: 0px;
+  --gem-offset-y: 0px;
+  --gem-rotate: 20deg;
 }
-.key-overlay__gem.--visible {
+.key-overlay__gem--visible {
   opacity: 1;
 }
 .key-overlay__gem img {
   width: 100%;
-  height: 100%;
+  height: auto;
+  display: block;
+  transform: scale(var(--gem-scale, 1)) translate(var(--gem-offset-x, 0px), var(--gem-offset-y, 0px));
 }
 .portal-overlay {
   position: absolute;
-  pointer-events: auto;
-  width: 18%;
-  aspect-ratio: 1;
   transform: translate(-50%, -50%);
+  width: 20%;
+  pointer-events: none;
+  z-index: 5;
 }
 .portal-tooltip {
   position: absolute;
-  bottom: 105%;
+  bottom: 94%;
   left: 50%;
   transform: translateX(-50%);
-  background: rgba(23, 50, 77, 0.92);
-  color: #fff;
-  padding: 8px 12px;
-  border-radius: 8px;
-  font-size: 12px;
-  white-space: nowrap;
+  width: 230px;
   pointer-events: none;
+  z-index: 1;
+}
+.portal-tooltip__bubble {
+  background-image: url('/assets/epic-labs/speech-bubble.png');
+  background-size: 100% 100%;
+  background-repeat: no-repeat;
+  padding: 12px 10px;
+  padding-bottom: 16%;
+}
+.portal-tooltip__inner {
+  padding: 0;
+}
+.portal-tooltip__text {
+  font-family: ${V.FONT_SECONDARY};
+  font-weight: 700;
+  font-size: 14px;
+  line-height: 16px;
+  text-align: center;
+}
+.portal-tooltip__text b {
+  color: ${V.C_EXCLAIM_BLUE};
 }
 .portal-anims {
   position: relative;
   width: 100%;
-  height: 100%;
 }
 .portal-anim {
+  width: 100%;
+  height: auto;
+  pointer-events: none;
+  display: block;
+  opacity: 0;
+}
+.portal-anim--active {
+  opacity: 1;
+}
+.portal-anim--stack {
   position: absolute;
-  inset: 0;
+  top: 0;
+  left: 0;
+  width: 100%;
 }
 .portal-click-zone {
   position: absolute;
-  inset: 0;
+  top: 15%;
+  left: 25%;
+  width: 50%;
+  height: 50%;
   border: none;
   background: transparent;
   cursor: pointer;
+  pointer-events: auto;
+  z-index: 2;
 }
 
 /* Treasure modal (key-ready celebration) — ported from treasure-modal.component.scss.
@@ -1180,7 +1415,7 @@ declare const __EXTENSION_GLOBAL_NAME__: string
     injectStyles(readingRoot, FONT_FACE + STAR_CSS, 'epic-star-styles')
 
     const starContainer = document.createElement('div')
-    starContainer.style.cssText = 'position:absolute;inset:0;pointer-events:none;'
+    starContainer.className = 'star-container-root'
     readingRoot.appendChild(starContainer)
 
     const starApp = createApp(StarOverlay, {
@@ -1200,10 +1435,36 @@ declare const __EXTENSION_GLOBAL_NAME__: string
     // Key/gem/portal overlay — only when the book has a treasure config.
     let keyGemApp: ReturnType<typeof createApp> | null = null
     let keyGemContainer: HTMLElement | null = null
+    let keyGemResizeObserver: ResizeObserver | null = null
+    let keyGemResizeHandler: (() => void) | null = null
+    let keyGemRafId: number | null = null
+    const updateKeyGemPosition = () => {
+      if (!keyGemContainer) return
+      if (keyGemRafId !== null) cancelAnimationFrame(keyGemRafId)
+      keyGemRafId = requestAnimationFrame(() => {
+        keyGemRafId = null
+        const rect = context.data.getFlipBookRect()
+        if (!rect || !keyGemContainer) return
+        const hostRect = (readingRoot as ShadowRoot).host.getBoundingClientRect()
+        keyGemContainer.style.cssText = [
+          'position:absolute',
+          `top:${rect.y - hostRect.y}px`,
+          `left:${rect.x - hostRect.x}px`,
+          `width:${rect.width}px`,
+          `height:${rect.height}px`,
+          'pointer-events:none',
+          'container-type:size',
+        ].join(';')
+      })
+    }
     if (bookData?.treasureConfig) {
       keyGemContainer = document.createElement('div')
-      keyGemContainer.style.cssText = 'position:absolute;inset:0;pointer-events:none;'
+      updateKeyGemPosition()
       readingRoot.appendChild(keyGemContainer)
+      keyGemResizeObserver = new ResizeObserver(updateKeyGemPosition)
+      keyGemResizeObserver.observe((readingRoot as ShadowRoot).host)
+      keyGemResizeHandler = updateKeyGemPosition
+      window.addEventListener('resize', keyGemResizeHandler)
 
       keyGemApp = createApp(KeyGemOverlay, {
         epicLabsBookData: bookData,
@@ -1247,6 +1508,7 @@ declare const __EXTENSION_GLOBAL_NAME__: string
       drawerStore.clearCloseMetrics()
 
       // Advance to the new page.
+      updateKeyGemPosition()
       state.page = payload?.pageIndex ?? context.data.getCurrentPage()
       state.stars = getCurrentPageStars(context)
       state.clickVideos = getCurrentPageClickVideos(context)
@@ -1274,7 +1536,7 @@ declare const __EXTENSION_GLOBAL_NAME__: string
       if (payload?.mounted) {
         try {
           const drawerRoot = context.slots.get('drawer')
-          injectStyles(drawerRoot, FONT_FACE + DRAWER_CSS, 'epic-drawer-styles')
+          injectStyles(drawerRoot, FONT_FACE + EPIC_BUTTON_CSS + DRAWER_CSS, 'epic-drawer-styles')
 
           drawerContainer = document.createElement('div')
           drawerContainer.style.cssText = 'width:100%;height:100%;'
@@ -1324,7 +1586,7 @@ declare const __EXTENSION_GLOBAL_NAME__: string
       if (!state.activeModal) return
       try {
         const modalRoot = context.slots.get('modal')
-        injectStyles(modalRoot, FONT_FACE + MODAL_CSS, 'epic-modal-styles')
+        injectStyles(modalRoot, FONT_FACE + EPIC_BUTTON_CSS + MODAL_CSS, 'epic-modal-styles')
 
         modalContainer = document.createElement('div')
         modalContainer.style.cssText = 'width:100%;height:100%;'
@@ -1532,6 +1794,9 @@ declare const __EXTENSION_GLOBAL_NAME__: string
       drawerApp?.unmount()
       drawerContainer?.remove()
       keyGemApp?.unmount()
+      keyGemResizeObserver?.disconnect()
+      if (keyGemResizeHandler) window.removeEventListener('resize', keyGemResizeHandler)
+      if (keyGemRafId !== null) cancelAnimationFrame(keyGemRafId)
       keyGemContainer?.remove()
       starApp.unmount()
       starContainer.remove()

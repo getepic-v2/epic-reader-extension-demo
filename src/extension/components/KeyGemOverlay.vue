@@ -598,19 +598,43 @@ function getGemSlotViewportPos(slotIndex: number): { x: number; y: number } | nu
   <div v-if="epicLabsBookData?.treasureConfig" class="key-gem-overlay">
     <!-- Key layer -->
     <div ref="keyEl" class="key-overlay" :class="{ 'key-overlay--animating': keyAnimating }">
-      <div ref="keyWrapEl" class="key-overlay__wrap" :style="{ visibility: keyHidden ? 'hidden' : 'visible' }">
+      <div
+        ref="keyWrapEl"
+        class="key-overlay__key-wrap"
+        :style="{ visibility: keyHidden ? 'hidden' : 'visible' }"
+      >
         <div class="key-overlay__base"></div>
-        <img class="key-overlay__key" :class="{ 'key-overlay__key--shine': keyState === 'shine' }" :src="KEY_NORMAL" alt="" aria-hidden="true" />
-        <div v-if="keyState === 'shine'" ref="keyShineEl" class="key-overlay__shine"></div>
+        <img
+          class="key-overlay__img"
+          :class="{ 'key-overlay__img--no-shadow': keyState === 'shine' }"
+          :src="KEY_NORMAL"
+          alt=""
+          aria-hidden="true"
+          draggable="false"
+        />
+        <div
+          v-if="keyState === 'shine'"
+          ref="keyShineEl"
+          class="key-overlay__img key-overlay__img--lottie"
+        ></div>
 
         <!-- 3 gem slots -->
         <div
           v-for="i in 3"
           :key="'gem-' + i"
           class="key-overlay__gem"
-          :class="[`key-overlay__gem--${i - 1}`, { '--visible': filledSlotIndices[i - 1] }]"
+          :class="[
+            `key-overlay__gem--${i - 1}`,
+            { 'key-overlay__gem--visible': filledSlotIndices[i - 1] },
+          ]"
         >
-          <img v-if="filledSlotIndices[i - 1]" :src="GEM_NORMAL_SVG_PATHS[i - 1]" alt="" aria-hidden="true" />
+          <img
+            v-if="filledSlotIndices[i - 1]"
+            :src="GEM_NORMAL_SVG_PATHS[i - 1]"
+            alt=""
+            aria-hidden="true"
+            draggable="false"
+          />
         </div>
       </div>
     </div>
@@ -625,12 +649,30 @@ function getGemSlotViewportPos(slotIndex: number): { x: number; y: number } | nu
         top: (epicLabsBookData?.portalConfig?.yPercent ?? 0) + '%',
       }"
     >
-      <div v-if="portalTooltipText" class="portal-tooltip" v-html="portalTooltipText"></div>
+      <div v-if="portalTooltipText" class="portal-tooltip">
+        <div class="portal-tooltip__bubble">
+          <div class="portal-tooltip__inner">
+            <div class="portal-tooltip__text" v-html="portalTooltipText"></div>
+          </div>
+        </div>
+      </div>
 
       <div class="portal-anims">
-        <div v-show="portalState === 'default'" ref="portalDefaultEl" class="portal-anim portal-anim--default"></div>
-        <div v-show="portalState === 'activate'" ref="portalActivateEl" class="portal-anim portal-anim--activate"></div>
-        <div v-show="portalState === 'activated'" ref="portalActivatedEl" class="portal-anim portal-anim--activated"></div>
+        <div
+          ref="portalDefaultEl"
+          class="portal-anim"
+          :class="{ 'portal-anim--active': portalState === 'default' }"
+        ></div>
+        <div
+          ref="portalActivateEl"
+          class="portal-anim portal-anim--stack"
+          :class="{ 'portal-anim--active': portalState === 'activate' }"
+        ></div>
+        <div
+          ref="portalActivatedEl"
+          class="portal-anim portal-anim--stack"
+          :class="{ 'portal-anim--active': portalState === 'activated' }"
+        ></div>
       </div>
 
       <button class="portal-click-zone" type="button" aria-label="Open portal" @click="onPortalClick"></button>

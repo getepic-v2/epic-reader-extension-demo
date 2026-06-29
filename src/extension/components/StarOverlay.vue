@@ -21,6 +21,7 @@ const props = defineProps<{
 
 const STAR_LOTTIE_PATH = '/assets/epic-labs/animations/star/'
 const GAME_LOTTIE_PATH = '/assets/epic-labs/animations/game/'
+const CLICK_VIDEO_ICON = '/assets/epic-labs/mark/finger-point.svg'
 
 const starRefs = ref<Map<number, HTMLElement>>(new Map())
 const animations: AnimationItem[] = []
@@ -304,7 +305,12 @@ onBeforeUnmount(() => {
           }"
           @click="onClickVideoClick(i)"
         >
-          <span class="click-video-icon">▶</span>
+          <img
+            class="click-video-icon"
+            :src="CLICK_VIDEO_ICON"
+            alt=""
+            aria-hidden="true"
+          />
         </button>
       </template>
     </div>

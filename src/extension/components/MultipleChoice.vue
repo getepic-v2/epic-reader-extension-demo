@@ -13,7 +13,17 @@ const emit = defineEmits<{
 
 const selectedIndex = ref<number | null>(null)
 const hasAnswered = ref(false)
+const hasCheckedAnswer = ref(false)
 const isCorrect = ref(false)
+
+const theme = {
+  backgroundColor: '#3F1E56',
+  questionTextColor: '#FD5533',
+  optionSelectedBackgroundColor: '#F9FAFD',
+  actionTextColor: '#ffffff',
+  actionDisabledBackgroundColor: '#FF9670',
+  actionDisabledTextColor: '#ffffff',
+}
 
 function onOptionClick(index: number) {
   if (hasAnswered.value) return
@@ -25,6 +35,7 @@ function checkAnswer() {
   const option = props.content?.options?.[selectedIndex.value]
   isCorrect.value = !!option?.isCorrect
   hasAnswered.value = true
+  hasCheckedAnswer.value = true
   props.store?.updateCloseMetrics({
     isStarComplete: true,
     isCorrect: isCorrect.value,
@@ -50,35 +61,42 @@ function getOptionClass(index: number, option: { isCorrect: boolean }) {
 }
 
 function getButtonText() {
-  if (!hasAnswered.value) return 'Check Answer'
+  if (!hasCheckedAnswer.value) return 'Check Answer'
   return isCorrect.value ? 'Great Job!' : 'Nice Try!'
 }
 </script>
 
 <template>
-  <div class="mc-container">
-    <h3 class="mc-question">{{ content?.question }}</h3>
+  <div
+    class="multiple-choice-container"
+    :style="{
+      '--mc-bg-color': theme.backgroundColor,
+      '--mc-question-color': theme.questionTextColor,
+      '--mc-option-selected-bg-color': theme.optionSelectedBackgroundColor,
+      '--mc-action-text-color': theme.actionTextColor,
+      '--mc-action-disabled-bg-color': theme.actionDisabledBackgroundColor,
+      '--mc-action-disabled-text-color': theme.actionDisabledTextColor,
+    }"
+  >
+    <h3 class="question-text">{{ content?.question }}</h3>
 
-    <div class="mc-options">
+    <div class="options-container">
       <button
         v-for="(option, index) in content?.options"
         :key="option.id"
-        class="mc-option"
+        class="option-button"
         :class="getOptionClass(index, option)"
         :disabled="hasAnswered"
         @click="onOptionClick(index)"
       >
-        <span class="mc-option-text">{{ option.text }}</span>
+        <span class="option-text">{{ option.text }}</span>
       </button>
     </div>
 
     <button
-      class="mc-action"
-      :class="{
-        'mc-action--success': hasAnswered && isCorrect,
-        'mc-action--fail': hasAnswered && !isCorrect,
-      }"
-      :disabled="selectedIndex === null || (hasAnswered && !isCorrect)"
+      class="epic-btn epic-btn--l drawer-action"
+      :class="{ 'drawer-action--success': hasCheckedAnswer && isCorrect }"
+      :disabled="selectedIndex === null || (hasCheckedAnswer && !isCorrect)"
       @click="checkAnswer"
     >
       {{ getButtonText() }}

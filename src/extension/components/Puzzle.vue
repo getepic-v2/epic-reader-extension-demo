@@ -64,6 +64,7 @@ const FALLBACK_GAP = 12
 const FALLBACK_MARGIN = 24
 const PREFERRED_RATIO = 0.7
 const COMPLETION_ANIMATION_MS = 500
+const DRAWER_MEASURE_DELAY_MS = 1000
 
 const containerRef = ref<HTMLDivElement | null>(null)
 const canvasRef = ref<HTMLCanvasElement | null>(null)
@@ -747,7 +748,7 @@ function scheduleCanvasMeasure(onMeasured?: () => void): void {
       return
     }
     scheduleCanvasMeasure(onMeasured)
-  }, 300)
+  }, DRAWER_MEASURE_DELAY_MS)
 }
 
 function resetPuzzle(): void {
@@ -983,6 +984,7 @@ watch(
     resetState()
     preloadImage()
   },
+  { immediate: true },
 )
 </script>
 
@@ -1046,6 +1048,7 @@ watch(
   display: flex;
   flex-direction: column;
   align-items: center;
+  box-sizing: border-box;
 }
 
 h2 {
@@ -1065,6 +1068,10 @@ h2 {
 .puzzle-canvas {
   width: 100%;
   height: 100%;
+  flex: 1 1 auto;
+  align-self: stretch;
+  min-height: 0;
+  display: block;
   touch-action: none;
   user-select: none;
   -webkit-user-select: none;
@@ -1120,23 +1127,5 @@ h2 {
 
 .puzzle-complete-actions {
   position: absolute;
-}
-
-.epic-btn {
-  border: none;
-  background: #0a96e6;
-  color: #ffffff;
-  padding: 8px 14px;
-  cursor: pointer;
-  border-radius: 4px;
-}
-
-.epic-btn--l {
-  padding: 10px 18px;
-  font-size: 16px;
-}
-
-.epic-btn--secondary {
-  background: #2a2a2a;
 }
 </style>

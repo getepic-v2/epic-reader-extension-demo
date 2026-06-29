@@ -9,6 +9,7 @@
     "preview": "vite preview",
     "build-only": "vite build",
     "type-check": "vue-tsc --build",
+    "dev:extension:all": "run-p dev:extension dev:serve",
     "dev:extension": "vite build --mode extension --watch",
     "dev:serve": "node scripts/dev-server.mjs",
     "build:extension": "vite build --mode extension"
