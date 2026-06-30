@@ -597,13 +597,17 @@ function getGemSlotViewportPos(slotIndex: number): { x: number; y: number } | nu
 <template>
   <div v-if="epicLabsBookData?.treasureConfig" class="key-gem-overlay">
     <!-- Key layer -->
-    <div ref="keyEl" class="key-overlay" :class="{ 'key-overlay--animating': keyAnimating }">
+    <div
+      ref="keyEl"
+      class="key-overlay"
+      :class="{ 'key-overlay--animating': keyAnimating }"
+      :style="{ visibility: keyHidden ? 'hidden' : undefined }"
+    >
+      <div class="key-overlay__base"></div>
       <div
         ref="keyWrapEl"
         class="key-overlay__key-wrap"
-        :style="{ visibility: keyHidden ? 'hidden' : 'visible' }"
       >
-        <div class="key-overlay__base"></div>
         <img
           class="key-overlay__img"
           :class="{ 'key-overlay__img--no-shadow': keyState === 'shine' }"
@@ -618,19 +622,37 @@ function getGemSlotViewportPos(slotIndex: number): { x: number; y: number } | nu
           class="key-overlay__img key-overlay__img--lottie"
         ></div>
 
-        <!-- 3 gem slots -->
         <div
-          v-for="i in 3"
-          :key="'gem-' + i"
-          class="key-overlay__gem"
-          :class="[
-            `key-overlay__gem--${i - 1}`,
-            { 'key-overlay__gem--visible': filledSlotIndices[i - 1] },
-          ]"
+          class="key-overlay__gem key-overlay__gem--0"
+          :class="{ 'key-overlay__gem--visible': filledSlotIndices[0] }"
         >
           <img
-            v-if="filledSlotIndices[i - 1]"
-            :src="GEM_NORMAL_SVG_PATHS[i - 1]"
+            v-if="filledSlotIndices[0]"
+            :src="GEM_NORMAL_SVG_PATHS[0]"
+            alt=""
+            aria-hidden="true"
+            draggable="false"
+          />
+        </div>
+        <div
+          class="key-overlay__gem key-overlay__gem--1"
+          :class="{ 'key-overlay__gem--visible': filledSlotIndices[1] }"
+        >
+          <img
+            v-if="filledSlotIndices[1]"
+            :src="GEM_NORMAL_SVG_PATHS[1]"
+            alt=""
+            aria-hidden="true"
+            draggable="false"
+          />
+        </div>
+        <div
+          class="key-overlay__gem key-overlay__gem--2"
+          :class="{ 'key-overlay__gem--visible': filledSlotIndices[2] }"
+        >
+          <img
+            v-if="filledSlotIndices[2]"
+            :src="GEM_NORMAL_SVG_PATHS[2]"
             alt=""
             aria-hidden="true"
             draggable="false"

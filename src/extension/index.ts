@@ -70,6 +70,16 @@ function getCurrentPageClickVideos(context: ExtensionContext): ClickVideo[] {
   return getCurrentPage(context)?.clickVideos || []
 }
 
+function appendCacheBuster(url: string, cacheWindowMs = 3 * 60 * 60 * 1000): string {
+  if (!url) return url
+  const stamp =
+    cacheWindowMs > 0
+      ? Math.floor(Date.now() / cacheWindowMs) * cacheWindowMs
+      : Date.now()
+  const separator = url.includes('?') ? '&' : '?'
+  return `${url}${separator}t=${stamp}`
+}
+
 /**
  * @font-face for the fonts the ported components reference ('Roboto',
  * 'Mikado'). Absolute URLs to the production asset domain so the fonts load
@@ -285,6 +295,176 @@ const STAR_CSS = `
   z-index: 1;
   transform-origin: 50% 70%;
   animation: click-video-breathe 2.6s ease-in-out infinite;
+}
+
+/* Key/gem/portal overlay (reading-area) */
+.key-gem-overlay {
+  display: contents;
+}
+.key-overlay {
+  position: absolute;
+  right: 5%;
+  top: 5%;
+  height: 13cqh;
+  aspect-ratio: 1;
+  pointer-events: auto;
+  cursor: default;
+  opacity: 0.4;
+  transition: opacity 0.2s ease;
+}
+.key-overlay:hover,
+.key-overlay--animating {
+  opacity: 1;
+}
+.key-overlay__base {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: white;
+  box-shadow: ${V.SHADOW_DISTANT};
+  z-index: 0;
+}
+.key-overlay__base::before {
+  content: '';
+  position: absolute;
+  inset: 4%;
+  border-radius: 50%;
+  background: #c9f6f9;
+}
+.key-overlay__key-wrap {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  height: 82%;
+  aspect-ratio: 179 / 260;
+  z-index: 1;
+}
+.key-overlay__img {
+  width: 100%;
+  height: auto;
+  display: block;
+  position: relative;
+  z-index: 1;
+}
+.key-overlay__img--no-shadow {
+  filter: none;
+}
+.key-overlay__img--lottie {
+  position: absolute;
+  inset: 0;
+  transform: scale(1.4) translateY(-3%);
+  transform-origin: center;
+}
+.key-overlay__gem {
+  position: absolute;
+  transform: translate(-50%, -50%) rotate(var(--gem-rotate, 0deg));
+  opacity: 0;
+  transition: opacity 0.4s ease;
+  z-index: 2;
+}
+.key-overlay__gem--0 {
+  left: 21%;
+  top: 30%;
+  width: 18%;
+  --gem-scale: 1;
+  --gem-offset-x: 0px;
+  --gem-offset-y: 0px;
+  --gem-rotate: -18deg;
+}
+.key-overlay__gem--1 {
+  left: 49.5%;
+  top: 30%;
+  width: 23%;
+  --gem-scale: 1;
+  --gem-offset-x: 0px;
+  --gem-offset-y: 0px;
+}
+.key-overlay__gem--2 {
+  left: 81.5%;
+  top: 31%;
+  width: 19%;
+  --gem-scale: 1;
+  --gem-offset-x: 0px;
+  --gem-offset-y: 0px;
+  --gem-rotate: 20deg;
+}
+.key-overlay__gem--visible {
+  opacity: 1;
+}
+.key-overlay__gem img {
+  width: 100%;
+  height: auto;
+  display: block;
+  transform: scale(var(--gem-scale, 1)) translate(var(--gem-offset-x, 0px), var(--gem-offset-y, 0px));
+}
+.portal-overlay {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  width: 20%;
+  pointer-events: none;
+  z-index: 5;
+}
+.portal-tooltip {
+  position: absolute;
+  bottom: 94%;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 230px;
+  pointer-events: none;
+  z-index: 1;
+}
+.portal-tooltip__bubble {
+  background-image: url('/assets/epic-labs/speech-bubble.png');
+  background-size: 100% 100%;
+  background-repeat: no-repeat;
+  padding: 12px 10px;
+  padding-bottom: 16%;
+}
+.portal-tooltip__inner {
+  padding: 0;
+}
+.portal-tooltip__text {
+  font-family: ${V.FONT_SECONDARY};
+  font-weight: 700;
+  font-size: 14px;
+  line-height: 16px;
+  text-align: center;
+}
+.portal-tooltip__text b {
+  color: ${V.C_EXCLAIM_BLUE};
+}
+.portal-anims {
+  position: relative;
+  width: 100%;
+}
+.portal-anim {
+  width: 100%;
+  height: auto;
+  pointer-events: none;
+  display: block;
+  opacity: 0;
+}
+.portal-anim--active {
+  opacity: 1;
+}
+.portal-anim--stack {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+}
+.portal-click-zone {
+  position: absolute;
+  top: 15%;
+  left: 25%;
+  width: 50%;
+  height: 50%;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  pointer-events: auto;
+  z-index: 2;
 }
 @keyframes click-video-breathe {
   0%, 100% { transform: scale(0.85); }
@@ -1364,7 +1544,10 @@ declare const __EXTENSION_GLOBAL_NAME__: string
     let hasGameSuccess = false
     let readingHistory: number[] = []
     const bookTotalPages = bookData?.pages.length ?? 0
+    const lastLabsPageNumber =
+      bookData?.pages.reduce((max, page) => Math.max(max, page.pageNumber), 0) ?? 0
     let lastVideoResult: VideoModalResult | null = null
+    let videoModalType: 'start' | 'end' | 'click' | null = null
     let guideOpenedAt: number | null = null
     let keyGemOverlayRef: KeyGemOverlayApi | null = null
 
@@ -1385,6 +1568,7 @@ declare const __EXTENSION_GLOBAL_NAME__: string
       videoModalData: null as VideoModalData | null,
       bookRatingData: null as BookRatingDialogData | null,
     })
+    let previousPage = state.page
 
     // Stash ids so the KeyGemOverlay can restore them once mounted (below).
     let pendingRestoreIds: string[] | null = null
@@ -1426,6 +1610,7 @@ declare const __EXTENSION_GLOBAL_NAME__: string
       // Wire click-video buttons to open the video modal.
       onVideoClick: (url: string) => {
         state.videoModalData = { videoUrl: url, skipLabel: 'Skip' }
+        videoModalType = 'click'
         state.activeModal = 'video'
         context.commands.execute('openModal', { width: 720, height: 480 })
       },
@@ -1459,8 +1644,8 @@ declare const __EXTENSION_GLOBAL_NAME__: string
     }
     if (bookData?.treasureConfig) {
       keyGemContainer = document.createElement('div')
+      starContainer.appendChild(keyGemContainer)
       updateKeyGemPosition()
-      readingRoot.appendChild(keyGemContainer)
       keyGemResizeObserver = new ResizeObserver(updateKeyGemPosition)
       keyGemResizeObserver.observe((readingRoot as ShadowRoot).host)
       keyGemResizeHandler = updateKeyGemPosition
@@ -1486,6 +1671,19 @@ declare const __EXTENSION_GLOBAL_NAME__: string
         },
       })
       keyGemApp.mount(keyGemContainer)
+    }
+
+    const openVideoModal = (type: 'start' | 'end') => {
+      const rawVideoUrl =
+        type === 'start' ? bookData?.startVideo?.url : bookData?.endVideo?.url
+      if (!rawVideoUrl) return
+      state.videoModalData = {
+        videoUrl: appendCacheBuster(rawVideoUrl),
+        skipLabel: type === 'start' ? 'Let’s Read!' : 'Complete',
+      }
+      videoModalType = type
+      state.activeModal = 'video'
+      context.commands.execute('openModal', { width: 720, height: 480 })
     }
 
     // --- Events ---
@@ -1518,6 +1716,22 @@ declare const __EXTENSION_GLOBAL_NAME__: string
       currentPageOpenedAt = Date.now()
       exposureStarCount += state.stars.filter((s: Star) => s.type !== 'game').length
       if (!readingHistory.includes(state.page)) readingHistory.push(state.page)
+
+      if (state.page === 2 && previousPage === 0) {
+        openVideoModal('start')
+      }
+
+      const isTurn2LastPageByHandler = previousPage === state.page - 2
+      if (
+        lastLabsPageNumber > 0 &&
+        state.page === lastLabsPageNumber &&
+        isTurn2LastPageByHandler &&
+        bookData?.endVideo?.url
+      ) {
+        openVideoModal('end')
+      }
+
+      previousPage = state.page
       analytics.log(EPIC_LABS_PAGE_EXPOSURE, {
         book_id: state.bookId,
         page_index: state.page,
@@ -1657,12 +1871,21 @@ declare const __EXTENSION_GLOBAL_NAME__: string
         })
         gameStartedAt = null
       } else if (closingModal === 'video' && lastVideoResult) {
-        analytics.log(EPIC_LABS_CLICK_COMPLETE_BUTTON, {
-          book_id: state.bookId,
-          is_finish: lastVideoResult.isFinish,
-          duration: lastVideoResult.duration,
-        })
+        if (videoModalType === 'start') {
+          analytics.log(EPIC_LABS_CLICK_READ_BUTTON, {
+            book_id: state.bookId,
+            is_finish: lastVideoResult.isFinish,
+            duration: lastVideoResult.duration,
+          })
+        } else if (videoModalType === 'end') {
+          analytics.log(EPIC_LABS_CLICK_COMPLETE_BUTTON, {
+            book_id: state.bookId,
+            is_finish: lastVideoResult.isFinish,
+            duration: lastVideoResult.duration,
+          })
+        }
         lastVideoResult = null
+        videoModalType = null
       }
       modalApp?.unmount()
       modalContainer?.remove()
