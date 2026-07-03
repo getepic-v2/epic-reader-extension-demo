@@ -16,6 +16,8 @@ import type {
   WordChoiceWord,
   VideoConfig,
   ClickVideo,
+  Shot,
+  ShotType,
 } from '../types'
 
 /** XML star type → internal StarType mapping */
@@ -152,6 +154,7 @@ function parsePagesNew(readingModule: Element): EpicLabsBookPage[] {
     const stars = parseStarsNew(pageElement)
     const motionUrl = pageElement.getAttribute('motion_url') || undefined
     const clickVideos = parseClickVideos(pageElement)
+    const shots = parseShots(pageElement)
 
     pages.push({
       pageNumber: actualPageNumber,
@@ -159,6 +162,7 @@ function parsePagesNew(readingModule: Element): EpicLabsBookPage[] {
       stars,
       motionUrl,
       clickVideos,
+      shots,
     })
   })
 
@@ -219,6 +223,31 @@ function parseClickVideos(pageElement: Element): ClickVideo[] {
   })
 
   return clickVideos
+}
+
+function parseShots(pageElement: Element): Shot[] {
+  const shots: Shot[] = []
+  const shotElements = pageElement.querySelectorAll('shots > shot')
+
+  shotElements.forEach((shotElement) => {
+    const url = shotElement.querySelector('url')?.textContent?.trim() || ''
+    if (!url) return // skip malformed shots, mirroring parseClickVideos
+
+    const index = parseInt(shotElement.getAttribute('index') || '0', 10)
+    const type = (shotElement.getAttribute('type') || 'video') as ShotType
+    const loop = parseInt(shotElement.getAttribute('loop') || '0', 10)
+
+    // Empty <subtitle/> → textContent is '' → undefined
+    const subtitleRaw =
+      shotElement.querySelector('subtitle')?.textContent?.trim() || ''
+    const subtitleUrl = subtitleRaw || undefined
+
+    shots.push({ index, type, loop, url, subtitleUrl })
+  })
+
+  // Defensive: play in ascending `index` order regardless of XML order.
+  shots.sort((a, b) => a.index - b.index)
+  return shots
 }
 
 function mapXmlTypeToStarType(xmlType: string, starElement: Element): StarType {

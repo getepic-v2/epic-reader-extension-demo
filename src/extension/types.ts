@@ -191,12 +191,29 @@ export interface ClickVideo {
   coordinates: StarCoordinates & { width: number; height: number }
 }
 
+// --- Page-level video shots (V1.2 new) ---
+// A page can carry an ordered sequence of <shot> videos that auto-play in
+// order, covering the page like a background animation layer.
+export type ShotType = 'video'
+
+export interface Shot {
+  /** Sort key from the XML `index` attribute; shots play in ascending order. */
+  index: number
+  type: ShotType
+  /** 0 = infinite loop (muted); N>=1 = play N times (with sound). */
+  loop: number
+  url: string
+  /** SVG subtitle overlaid on the video, same size. Empty <subtitle/> → undefined. */
+  subtitleUrl?: string
+}
+
 export interface EpicLabsBookPage {
   pageNumber: number
   starCount: number
   stars: Star[]
   motionUrl?: string
   clickVideos: ClickVideo[]
+  shots: Shot[]
 }
 
 export interface VideoConfig {

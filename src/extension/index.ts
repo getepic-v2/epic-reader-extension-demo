@@ -7,10 +7,12 @@ import VideoModal from './components/VideoModal.vue'
 import GuideModal from './components/GuideModal.vue'
 import BookRatingModal from './components/BookRatingModal.vue'
 import { injectStyles } from './utils/styles'
+import { appendCacheBuster } from './utils/url'
 import type {
   ExtensionContext,
   Star,
   ClickVideo,
+  Shot,
   EpicReaderBookData,
   VideoModalData,
   VideoModalResult,
@@ -18,6 +20,8 @@ import type {
   BookRatingDialogData,
 } from './types'
 import { parseLabsXml } from './utils/parse-labs-xml'
+import { ShotPlayer } from './shot-player'
+import { createShotPreloadQueue } from './composables/useShotPreloadQueue'
 import { createDrawerStore } from './composables/useDrawerStore'
 import { createAnalytics } from './composables/useAnalytics'
 import { createTreasureService } from './composables/useTreasureService'
@@ -70,14 +74,36 @@ function getCurrentPageClickVideos(context: ExtensionContext): ClickVideo[] {
   return getCurrentPage(context)?.clickVideos || []
 }
 
-function appendCacheBuster(url: string, cacheWindowMs = 3 * 60 * 60 * 1000): string {
-  if (!url) return url
-  const stamp =
-    cacheWindowMs > 0
-      ? Math.floor(Date.now() / cacheWindowMs) * cacheWindowMs
-      : Date.now()
-  const separator = url.includes('?') ? '&' : '?'
-  return `${url}${separator}t=${stamp}`
+function getCurrentPageShots(context: ExtensionContext): Shot[] {
+  return getCurrentPage(context)?.shots || []
+}
+
+/**
+ * Shots for the NEXT page, found by pages-array index (NOT pageNumber+1 —
+ * pageNumber is non-contiguous: 2, 4, 6, 8...). Used for cross-page preload.
+ */
+function getNextPageShots(context: ExtensionContext): Shot[] {
+  const pages = getLabsData(context)?.pages
+  if (!pages) return []
+  const currentNum = context.data.getCurrentPage()
+  const i = pages.findIndex((p) => p.pageNumber === currentNum)
+  if (i < 0 || i + 1 >= pages.length) return []
+  const nextPage = pages[i + 1]
+  return nextPage ? nextPage.shots || [] : []
+}
+
+
+function getVideoModalSize(): { width: number; height: number } {
+  const maxFrameWidth = Math.min(
+    1060,
+    Math.max(320, window.innerWidth - 200),
+    Math.max(320, (window.innerHeight - 200) * 16 / 9),
+  )
+
+  return {
+    width: Math.round(maxFrameWidth),
+    height: Math.round(maxFrameWidth * 9 / 16),
+  }
 }
 
 /**
@@ -120,6 +146,109 @@ const STAR_CSS = `
 .star-overlay {
   pointer-events: none;
   z-index: 1;
+  /* Stars are visible by default on every page — StarOverlay renders the
+     star buttons + drag-fill zones, which are page interaction content
+     independent of any <shots> video. Only on pages that HAVE shots does
+     ShotPlayer take over: it hides .star-overlay during preload/audible
+     playback and fades it in 1s after a loop=0 background shot starts (in
+     sync with the subtitle SVG). Pages without shots never create a
+     ShotPlayer, so stars stay visible here. */
+  opacity: 1;
+  transition: opacity 0.4s ease;
+  will-change: opacity;
+}
+.star-overlay--hidden {
+  opacity: 0;
+}
+/* Shot video overlay (reading-area) — below star-overlay (z-index:0), above page */
+.shot-overlay-root {
+  pointer-events: none;
+  overflow: hidden;
+}
+.shot-overlay {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  /* White backing: a <video> paints nothing until its first frame loads, so
+     the book page would bleed through during that gap. Opaque white hides
+     everything underneath until the video covers it. */
+  background: #fff;
+}
+/* Two ping-pong layers; the visible one is opacity:1. Hidden layer stays in
+   the render tree (not display:none) so its <video preload="auto"> keeps
+   buffering the next shot. No transition on the layer itself — the video
+   swap must be a hard cut, not a fade. */
+.shot-layer {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  pointer-events: none;
+}
+.shot-layer--visible {
+  opacity: 1;
+}
+.shot-video {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: fill;
+  pointer-events: none;
+}
+.shot-subtitle {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: fill;
+  pointer-events: none;
+  /* CSS-animation fade-in (NOT a transition): the <img> is remounted via :key
+     whenever its src changes, so the animation restarts cleanly each shot and
+     is immune to the reflow/decode that happens when a new SVG loads. The 1s
+     delay keeps the subtitle hidden until the video has been playing a beat,
+     then it fades in over 0.4s. animation-fill-mode: both holds opacity:0
+     through the delay so nothing flashes before the fade. */
+  opacity: 0;
+  animation: shot-subtitle-fade-in 0.4s ease 1s both;
+  will-change: opacity;
+}
+@keyframes shot-subtitle-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+/* Loading indicator shown while shots preload (before all reach
+   canplaythrough). Matches EpicWeb's global dot-loader: 3 blue bouncing
+   dots. Removed once playback begins. */
+.shot-loader {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+}
+.shot-loader__dots {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+.shot-loader__dot {
+  background-color: rgb(10, 150, 230);
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  animation: shot-bouncedelay 1.4s infinite ease-in-out;
+  animation-fill-mode: both;
+}
+.shot-loader__dot--1 { animation-delay: -0.32s; }
+.shot-loader__dot--2 { animation-delay: -0.16s; }
+.shot-loader__dot--3 { animation-delay: 0s; }
+@keyframes shot-bouncedelay {
+  0%, 80%, 100% { transform: scale(0); }
+  40% { transform: scale(1); }
 }
 .star-container {
   position: relative;
@@ -149,8 +278,6 @@ const STAR_CSS = `
 }
 .game-lottie {
   display: block;
-  width: 100%;
-  height: 100%;
   position: relative;
   z-index: 1;
   transform: scale(0.7);
@@ -880,15 +1007,13 @@ const MODAL_CSS = `
   display: flex;
   align-items: center;
   justify-content: center;
-  background: #fff;
   font-family: ${V.FONT_PRIMARY};
   overflow: visible;
 }
 .video-modal-frame {
   position: relative;
-  width: min(100%, calc((100% - 0px) * 16 / 9));
-  max-width: 100%;
-  max-height: 100%;
+  width: min(1060px, calc(100vw - 200px), calc((100vh - 200px) * 16 / 9));
+  max-height: calc(100vh - 200px);
   aspect-ratio: 16 / 9;
   border-radius: 8px;
   overflow: hidden;
@@ -1557,6 +1682,7 @@ declare const __EXTENSION_GLOBAL_NAME__: string
       bookId: context.data.getBookId(),
       stars: getCurrentPageStars(context),
       clickVideos: getCurrentPageClickVideos(context),
+      shots: getCurrentPageShots(context),
       selectedStar: null as Star | null,
       /** Which modal is currently active in the modal slot. */
       activeModal: null as
@@ -1612,10 +1738,95 @@ declare const __EXTENSION_GLOBAL_NAME__: string
         state.videoModalData = { videoUrl: url, skipLabel: 'Skip' }
         videoModalType = 'click'
         state.activeModal = 'video'
-        context.commands.execute('openModal', { width: 720, height: 480 })
+        context.commands.execute('openModal', getVideoModalSize())
       },
     })
     starApp.mount(starContainer)
+
+    // --- Shot video overlay — per-page <shots> sequence, below star-overlay ---
+    const shotPreloadQueue = createShotPreloadQueue()
+    let shotPlayer: ShotPlayer | null = null
+    let shotContainer: HTMLElement | null = null
+    let shotResizeObserver: ResizeObserver | null = null
+    let shotResizeHandler: (() => void) | null = null
+    let shotRafId: number | null = null
+    const updateShotPosition = () => {
+      if (!shotContainer) return
+      if (shotRafId !== null) cancelAnimationFrame(shotRafId)
+      shotRafId = requestAnimationFrame(() => {
+        shotRafId = null
+        const rect = context.data.getFlipBookRect()
+        if (!rect || !shotContainer) return
+        const hostRect = (readingRoot as ShadowRoot).host.getBoundingClientRect()
+        shotContainer.style.cssText = [
+          'position:absolute',
+          `top:${rect.y - hostRect.y}px`,
+          `left:${rect.x - hostRect.x}px`,
+          `width:${rect.width}px`,
+          `height:${rect.height}px`,
+          'pointer-events:none',
+          'z-index:0', // below star-overlay (z-index:1), above the book page
+        ].join(';')
+      })
+    }
+    const mountShotOverlay = () => {
+      // Tear down the previous mount (page turned, or re-mounting).
+      if (shotPlayer) {
+        shotPlayer.destroy()
+        shotPlayer = null
+      }
+      if (shotContainer) {
+        shotContainer.remove()
+        shotContainer = null
+      }
+      // Page has no shots — leave nothing mounted.
+      if (!state.shots.length) return
+
+      shotContainer = document.createElement('div')
+      shotContainer.className = 'shot-overlay-root'
+      starContainer.appendChild(shotContainer)
+      updateShotPosition()
+
+      shotPlayer = new ShotPlayer({
+        container: shotContainer,
+        shots: state.shots,
+        queue: shotPreloadQueue,
+        // MarkLayer (star-overlay) appears in sync with the SVG subtitle:
+        // hidden while any audible (loop>=1) shot plays, faded in 1s after a
+        // loop=0 terminal background shot starts.
+        onMarkLayer: (visible: boolean) => {
+          // Toggle only the MarkLayer (star-overlay) element, NOT the root
+          // container — the shot overlay lives inside the same root and must
+          // stay visible while videos play. Semantics is inverted from the
+          // default: .star-overlay is visible by default (stars show on
+          // pages without shots); ShotPlayer hides it during preload/audible
+          // playback and reveals it 1s into a loop=0 background shot.
+          const markLayer = starContainer.querySelector('.star-overlay')
+          if (!markLayer) return
+          if (visible) markLayer.classList.remove('star-overlay--hidden')
+          else markLayer.classList.add('star-overlay--hidden')
+        },
+        // Two-phase page turn: when the user taps next while resting on a
+        // loop=0 background (and the page also has a loop>=1 audible shot),
+        // the player replays the audible shot first, then asks us here to
+        // perform the real page turn once it finishes. We must call the
+        // ORIGINAL reader command — going through the hooked execute would
+        // re-enter the interceptor and swallow it again.
+        onRequestPageTurn: (direction: 'next' | 'prev') => {
+          originalExecute(direction === 'next' ? 'nextPage' : 'previousPage')
+        },
+      })
+    }
+    mountShotOverlay()
+    // Prime the next page's shots on initial mount (concurrency=1, queued
+    // after the current page's front/back loads).
+    shotPreloadQueue.enqueuePage(
+      getNextPageShots(context).map((s) => appendCacheBuster(s.url)),
+    )
+    shotResizeObserver = new ResizeObserver(updateShotPosition)
+    shotResizeObserver.observe((readingRoot as ShadowRoot).host)
+    shotResizeHandler = updateShotPosition
+    window.addEventListener('resize', shotResizeHandler)
 
     // Key/gem/portal overlay — only when the book has a treasure config.
     let keyGemApp: ReturnType<typeof createApp> | null = null
@@ -1683,7 +1894,7 @@ declare const __EXTENSION_GLOBAL_NAME__: string
       }
       videoModalType = type
       state.activeModal = 'video'
-      context.commands.execute('openModal', { width: 720, height: 480 })
+      context.commands.execute('openModal', getVideoModalSize())
     }
 
     // --- Events ---
@@ -1710,9 +1921,21 @@ declare const __EXTENSION_GLOBAL_NAME__: string
       state.page = payload?.pageIndex ?? context.data.getCurrentPage()
       state.stars = getCurrentPageStars(context)
       state.clickVideos = getCurrentPageClickVideos(context)
+      state.shots = getCurrentPageShots(context)
       state.selectedStar = null
       drawerStore.resetDrawerState()
       keyGemOverlayRef?.resetPortalVisualState()
+      // Drain the old page's preload tasks (and cancel the in-flight pool
+      // download) before the new page's ShotOverlay starts loading.
+      shotPreloadQueue.drain()
+      updateShotPosition()
+      mountShotOverlay()
+      // Preload the NEXT page's shots at low priority. ShotOverlay's own
+      // front/back loads run at higher priority via the same queue
+      // (concurrency=1, serialized).
+      shotPreloadQueue.enqueuePage(
+        getNextPageShots(context).map((s) => appendCacheBuster(s.url)),
+      )
       currentPageOpenedAt = Date.now()
       exposureStarCount += state.stars.filter((s: Star) => s.type !== 'game').length
       if (!readingHistory.includes(state.page)) readingHistory.push(state.page)
@@ -1971,6 +2194,16 @@ declare const __EXTENSION_GLOBAL_NAME__: string
           count: clickedStarCount,
         })
       }
+      // Two-phase page turn: on pages that mix loop=0 (background) and loop>=1
+      // (audible) shots, the first "next page" tap while resting on the loop=0
+      // background does NOT advance the book — the ShotPlayer replays the
+      // audible shot and later requests the real turn via onRequestPageTurn
+      // (which calls originalExecute directly, bypassing this interceptor).
+      // previousPage always passes through.
+      if (command === 'nextPage' && shotPlayer) {
+        const action = shotPlayer.consumePageTurn('next')
+        if (action === 'swallow') return
+      }
       originalExecute(command, payload)
     }
 
@@ -2021,6 +2254,12 @@ declare const __EXTENSION_GLOBAL_NAME__: string
       if (keyGemResizeHandler) window.removeEventListener('resize', keyGemResizeHandler)
       if (keyGemRafId !== null) cancelAnimationFrame(keyGemRafId)
       keyGemContainer?.remove()
+      shotPlayer?.destroy()
+      shotResizeObserver?.disconnect()
+      if (shotResizeHandler) window.removeEventListener('resize', shotResizeHandler)
+      if (shotRafId !== null) cancelAnimationFrame(shotRafId)
+      shotContainer?.remove()
+      shotPreloadQueue.dispose()
       starApp.unmount()
       starContainer.remove()
       interactionMemory.reset()
