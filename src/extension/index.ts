@@ -295,6 +295,7 @@ const STAR_CSS = `
   display: flex;
   align-items: center;
   justify-content: center;
+  z-index: 1;
 }
 .drag-fill-drop-zone__btn {
   display: flex;
@@ -346,10 +347,22 @@ const STAR_CSS = `
 .drag-fill-drop-zone--placed .drag-fill-drop-zone__btn {
   display: none;
 }
+.drag-fill-temp-page {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: fill;
+  pointer-events: none;
+  /* sits above the original book page, below drop zones / placed items */
+  z-index: 0;
+}
 .drag-fill-placed-item {
   position: absolute;
   object-fit: contain;
   pointer-events: none;
+  z-index: 1;
 }
 .hotspot-region {
   position: absolute;
@@ -667,6 +680,25 @@ const DRAWER_CSS = `
   font-family: ${V.FONT_PRIMARY};
   overflow: hidden;
 }
+/* Global heading defaults — mirror EpicWeb app.scss h2/h3 epic-h-text mixin,
+   but WITHOUT color: each title class sets its own color (qc-cover__title is
+   purple, puzzle-preview-title blue, etc.). Setting a global color here would
+   outrank those per-class colors (.drawer-panel h2 has higher specificity than
+   a bare .qc-cover__title) and override them. Only font/size is shared. */
+.drawer-panel h2 {
+  font-family: ${V.FONT_SECONDARY};
+  font-weight: 400;
+  font-size: 32px;
+  line-height: 40px;
+  margin: 0;
+}
+.drawer-panel h3 {
+  font-family: ${V.FONT_SECONDARY};
+  font-weight: 400;
+  font-size: 22px;
+  line-height: 28px;
+  margin: 0;
+}
 
 /* Multiple Choice */
 .multiple-choice-container {
@@ -705,7 +737,7 @@ const DRAWER_CSS = `
   background: #f9fafd;
   border: 4px solid transparent;
   border-radius: ${V.R_M};
-  box-shadow: ${V.SHADOW_SUBTLE};
+  box-shadow: 0 1px 3px 0 rgba(60, 75, 98, 0.15);
   cursor: pointer;
   transition: all 0.3s ease;
   text-align: left;
@@ -871,6 +903,9 @@ const DRAWER_CSS = `
   padding: 16px;
 }
 .puzzle-preview-title {
+  /* h2 default (above) supplies Mikado/32px/40lh; color is NOT in the global
+     rule, so set it here — matches the original global h2 epic-h-text(2) blue. */
+  color: ${V.C_EXCLAIM_BLUE};
   text-align: center;
 }
 .puzzle-preview img {
@@ -939,6 +974,925 @@ const DRAWER_CSS = `
 }
 .drawer-info-text a {
   color: #0a96e6;
+}
+
+/* Hotspot (drawer-hotspot) — ported from drawer-hotspot.component.scss.
+   Colors inlined from the source's local SCSS vars. */
+.hs-root {
+  height: 100%;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  position: relative;
+  isolation: isolate;
+}
+
+/* ── Question phase ── */
+.hs-question {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 28px 24px 32px;
+  position: relative;
+  overflow: hidden;
+}
+.hs-question__bg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  /* Original is an <img src="/assets/epic-labs/flashcard/front-8.png"
+     object-fit:cover>; here it's a <div>, so use background-image with cover. */
+  background-image: url('/assets/epic-labs/flashcard/front-8.png');
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  pointer-events: none;
+  z-index: 0;
+}
+.hs-question__body {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 20px;
+  text-align: center;
+  animation: hs-enter-up 0.4s cubic-bezier(0.22, 1, 0.36, 1) 0.3s both;
+}
+.hs-question__text {
+  font-family: 'Mikado', sans-serif;
+  font-size: 28px;
+  font-weight: 700;
+  color: #0a96e6;
+  line-height: 32px;
+  letter-spacing: 0.25px;
+  margin: 0;
+}
+.hs-question--shake {
+  animation: hs-shake 0.5s cubic-bezier(0.36, 0.07, 0.19, 0.97) both;
+}
+
+@keyframes hs-enter-up {
+  from { transform: translateY(20px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+@keyframes hs-shake {
+  10%, 90% { transform: translateX(-3px); }
+  20%, 80% { transform: translateX(5px); }
+  30%, 50%, 70% { transform: translateX(-6px); }
+  40%, 60% { transform: translateX(6px); }
+  100% { transform: translateX(0); }
+}
+
+/* Quiz compare (MINI CLASH) — ported from drawer-quiz-compare.component.scss.
+   Local SCSS vars inlined: $green #47b334, $yellow-green #b2d338, $purple #3f1e56,
+   $timer-bg #d3ddec, $text-dark #3c4b62, card-default bg #faffe7 / border #b2d338,
+   card-correct bg #edfcb4 / border #47b334, card-wrong bg #ffe8f0 / border #e2195d. */
+.qc-root {
+  height: 100%;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  background: #f5f5f5;
+  overflow: hidden;
+  position: relative;
+  isolation: isolate;
+}
+
+/* ── Cover ── */
+.qc-cover {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  padding: 16px;
+  position: relative;
+  background:
+    url('/assets/epic-labs/drawer/mini-clash-start-bg.png') center / cover no-repeat,
+    #b2d338;
+  overflow: hidden;
+}
+.qc-cover--exiting {
+  animation: qc-exit-fade-up 0.28s ease-in forwards;
+  pointer-events: none;
+}
+.qc-cover__content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 32px;
+  position: relative;
+  z-index: 1;
+}
+.qc-cover__title {
+  font-family: 'Mikado', sans-serif;
+  font-size: 28px;
+  font-weight: 700;
+  color: #3f1e56;
+  text-align: center;
+  line-height: 32px;
+  letter-spacing: 0.25px;
+  text-transform: uppercase;
+  margin: 0;
+  animation: qc-enter-up 0.4s cubic-bezier(0.22, 1, 0.36, 1) 0.3s both;
+}
+.qc-cover__prompt {
+  font-family: 'Mikado', sans-serif;
+  font-size: 22px;
+  font-weight: 700;
+  color: #3f1e56;
+  text-align: center;
+  line-height: 28px;
+  letter-spacing: 0.25px;
+  margin: 0;
+  animation: qc-enter-up 0.4s cubic-bezier(0.22, 1, 0.36, 1) 0.38s both;
+}
+.qc-cover__btn {
+  width: 180px;
+  height: 56px;
+  border-radius: 9999px;
+  border: 1px solid #3f1e56;
+  background: #3f1e56;
+  font-family: 'Mikado', sans-serif;
+  font-size: 20px;
+  font-weight: 700;
+  color: white;
+  letter-spacing: 0.25px;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: transform 0.1s;
+  animation: qc-enter-up-far 0.5s cubic-bezier(0.22, 1, 0.36, 1) 0.46s both;
+}
+.qc-cover__btn:active {
+  transform: scale(0.97);
+}
+
+/* ── Shared START / Again button ── */
+.qc-btn {
+  width: 100%;
+  height: 56px;
+  border-radius: 28px;
+  border: none;
+  background: white;
+  box-shadow: 0 4px 0 #47b334;
+  font-family: 'Mikado', sans-serif;
+  font-size: 20px;
+  font-weight: 700;
+  color: #47b334;
+  letter-spacing: 0.0125em;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: transform 0.1s, box-shadow 0.1s;
+}
+.qc-btn:active:not(:disabled) {
+  transform: translateY(3px);
+  box-shadow: 0 1px 0 #47b334;
+}
+.qc-btn:disabled {
+  background: linear-gradient(180deg, #d6dde6 0%, #b8c4d4 100%);
+  box-shadow: 0 4px 0 #7f8ca1;
+  cursor: default;
+}
+
+/* ── Game ── */
+.qc-game {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 16px 16px 20px;
+  background: #ffffff;
+  overflow: hidden;
+}
+.qc-game--exiting {
+  animation: qc-exit-fade-up 0.28s ease-in forwards;
+  pointer-events: none;
+}
+.qc-game__top {
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+}
+.qc-game__bottom {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  flex-shrink: 0;
+}
+.qc-subjects {
+  display: flex;
+  gap: 8px;
+}
+.qc-timer-row {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+  margin-bottom: 18px;
+}
+.qc-timer-secs {
+  font-family: 'Mikado', sans-serif;
+  font-size: 10px;
+  font-weight: 700;
+  color: #b2d338;
+  letter-spacing: 0.25px;
+  line-height: 1;
+}
+.qc-timer-bar {
+  width: 100%;
+  height: 14px;
+  border-radius: 8px;
+  background: #d3ddec;
+  overflow: hidden;
+}
+.qc-timer-fill {
+  height: 100%;
+  border-radius: 7px;
+  background: #b2d338;
+  transition: width 0.1s linear;
+}
+.qc-question {
+  font-family: 'Mikado', sans-serif;
+  font-size: 28px;
+  font-weight: 700;
+  color: #3c4b62;
+  line-height: 32px;
+  letter-spacing: 0.25px;
+  text-align: center;
+  margin: 0;
+}
+.qc-question--exiting {
+  animation: qc-exit-fade-up 0.3s ease-in forwards;
+  pointer-events: none;
+}
+.qc-question--entering {
+  animation: qc-enter-up 0.4s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+/* ── Subject cards ── */
+.qc-subject {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 8px 14px;
+  border-radius: 16px;
+  border: 4px solid #b2d338;
+  background: #faffe7;
+  cursor: pointer;
+  transition: transform 0.1s;
+  animation: qc-enter-up-far 0.45s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+.qc-subject:nth-child(2) { animation-delay: 0.07s; }
+.qc-subject:nth-child(3) { animation-delay: 0.14s; }
+.qc-subject:nth-child(4) { animation-delay: 0.21s; }
+.qc-subject:not(:disabled):active {
+  transform: translateY(3px);
+}
+.qc-subject:disabled {
+  cursor: default;
+}
+.qc-subject--correct {
+  border-color: #47b334 !important;
+  background: #edfcb4 !important;
+}
+.qc-subject--wrong {
+  border-color: #e2195d !important;
+  background: #ffe8f0 !important;
+}
+.qc-subject__img {
+  flex: 1;
+  width: 100%;
+  object-fit: contain;
+  min-height: 0;
+  filter: grayscale(1);
+  -webkit-user-drag: none;
+}
+.qc-subject--correct .qc-subject__img { filter: none; }
+.qc-subject--wrong .qc-subject__img { filter: none; }
+.qc-subject__label {
+  font-family: 'Roboto', sans-serif;
+  font-size: 16px;
+  font-weight: 700;
+  color: #b2d338;
+  text-align: center;
+  line-height: 22px;
+  letter-spacing: 0.016em;
+  flex-shrink: 0;
+  min-height: 44px;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+}
+.qc-subject--correct .qc-subject__label { color: #47b334; }
+.qc-subject--wrong .qc-subject__label { color: #e2195d; }
+
+/* ── Progress dots ── */
+.qc-dots {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 2.5px;
+  flex-shrink: 0;
+}
+.qc-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: rgba(178, 211, 56, 0.5);
+  transition: width 0.2s, height 0.2s, background 0.2s;
+}
+.qc-dot--active {
+  width: 15px;
+  height: 15px;
+  background: #b2d338;
+}
+
+/* ── Done ── */
+.qc-done {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 32px;
+  padding: 16px;
+  position: relative;
+  background:
+    url('/assets/epic-labs/drawer/mini-clash-again-bg.png') center / cover no-repeat,
+    #b2d338;
+  overflow: hidden;
+}
+.qc-done--try-again {
+  background:
+    url('/assets/epic-labs/flashcard/front-12.png') center / cover no-repeat,
+    #ffffff;
+}
+.qc-done__content {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  text-align: center;
+}
+.qc-done__title {
+  position: relative;
+  z-index: 1;
+  font-family: 'Mikado', sans-serif;
+  font-size: 28px;
+  font-weight: 700;
+  color: #02613b;
+  text-transform: uppercase;
+  letter-spacing: 0.25px;
+  line-height: 32px;
+  margin: 0;
+  animation: qc-enter-up 0.4s cubic-bezier(0.22, 1, 0.36, 1) 0.3s both;
+}
+.qc-done__score {
+  position: relative;
+  z-index: 1;
+  font-family: 'Mikado', sans-serif;
+  font-size: 16px;
+  font-weight: 700;
+  color: #02613b;
+  letter-spacing: 0.25px;
+  line-height: 28px;
+  text-align: center;
+  margin: 0;
+  animation: qc-enter-up 0.4s cubic-bezier(0.22, 1, 0.36, 1) 0.38s both;
+}
+.qc-done .qc-btn {
+  width: 180px;
+  border-radius: 9999px;
+  background: #02613b;
+  box-shadow: none;
+  color: white;
+  position: relative;
+  z-index: 1;
+  transition: transform 0.1s;
+  animation: qc-enter-up-far 0.5s cubic-bezier(0.22, 1, 0.36, 1) 0.46s both;
+}
+.qc-done .qc-btn:active:not(:disabled) {
+  transform: scale(0.97);
+  box-shadow: none;
+}
+
+@keyframes qc-enter-up {
+  from { transform: translateY(20px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+@keyframes qc-enter-up-far {
+  from { transform: translateY(60px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+@keyframes qc-exit-fade-up {
+  to { transform: translateY(-28px); opacity: 0; }
+}
+
+/* Infographic (h5-info-card) — ported from drawer-infographic.component.scss. */
+.ig-root {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: #f5f5f5;
+}
+.ig-frame {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border: none;
+}
+/* ── Loading spinner ── */
+.ig-loading {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #f5f5f5;
+  z-index: 1;
+}
+.ig-spinner {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  border: 5px solid ${V.C_LIGHT_SILVER};
+  border-top-color: ${V.C_EXCLAIM_BLUE};
+  animation: ig-spin 0.9s linear infinite;
+}
+.ig-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  color: #6b7c99;
+  font-size: 14px;
+}
+@keyframes ig-spin {
+  to { transform: rotate(360deg); }
+}
+
+/* Quiz single (race-lab) — ported from drawer-quiz-single.component.scss. */
+.quiz-single-container {
+  height: 100%;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 24px;
+  padding: 24px 16px;
+}
+.quiz-single-container .quiz-title {
+  font-size: 24px;
+  font-weight: 700;
+  color: ${V.C_EXCLAIM_BLUE};
+  text-align: center;
+  margin: 0;
+}
+.quiz-single-container .quiz-start-btn,
+.quiz-single-container .quiz-done-btn {
+  width: 100%;
+  background: ${V.C_EXCLAIM_BLUE};
+  color: ${V.C_WHITE};
+}
+.quiz-single-container .quiz-progress {
+  font-size: 14px;
+  font-weight: 600;
+  color: #6b7a99;
+  align-self: flex-end;
+}
+.quiz-single-container .quiz-question {
+  font-size: 20px;
+  font-weight: 700;
+  color: ${V.C_EXCLAIM_BLUE};
+  text-align: center;
+  margin: 0;
+}
+.quiz-single-container .quiz-options {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+}
+.quiz-single-container .option-btn {
+  width: 100%;
+  padding: 12px 16px;
+  font-size: 15px;
+  font-weight: 600;
+  color: #3c4b62;
+  background: #f9fafd;
+  border: 3px solid transparent;
+  border-radius: ${V.R_M};
+  box-shadow: 0 1px 3px rgba(60, 75, 98, 0.15);
+  cursor: pointer;
+  transition: border-color 0.2s, background 0.2s;
+  text-align: left;
+}
+.quiz-single-container .option-btn:hover:not(:disabled) {
+  border-color: ${V.C_EXCLAIM_BLUE};
+  background: #f0f7ff;
+}
+.quiz-single-container .option-btn:disabled {
+  cursor: default;
+}
+.quiz-single-container .option-btn.selected {
+  border-color: ${V.C_EXCLAIM_BLUE};
+  background: #f0f7ff;
+}
+.quiz-single-container .option-btn.correct {
+  border-color: #008845;
+  background: #edfcb4;
+  color: #008845;
+}
+.quiz-single-container .option-btn.incorrect {
+  border-color: #e2195d;
+  background: #ffe8f0;
+  color: #e2195d;
+}
+.quiz-single-container .quiz-result {
+  text-align: center;
+}
+.quiz-single-container .quiz-result .result-score {
+  font-size: 48px;
+  font-weight: 800;
+  color: ${V.C_EXCLAIM_BLUE};
+  margin: 0;
+}
+.quiz-single-container .quiz-result .result-label {
+  font-size: 18px;
+  font-weight: 600;
+  color: #3c4b62;
+  margin: 8px 0 0;
+}
+
+/* Flip match (flip-card) — ported from drawer-flip-match.component.scss. */
+.flip-match-container {
+  height: 100%;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  padding: 22px 15px 15px;
+  background: #ccecff;
+  gap: 38px;
+  box-sizing: border-box;
+}
+.flip-match-container .flip-title {
+  font-family: 'Mikado', sans-serif;
+  font-size: 22px;
+  font-weight: 700;
+  color: #3c4b62;
+  line-height: 28px;
+  margin: 0 7px;
+}
+.flip-match-container .cards-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 10px;
+}
+.flip-match-container .flip-card {
+  aspect-ratio: 1;
+  border-radius: 15px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  position: relative;
+  padding: 0;
+  perspective: 600px;
+  -webkit-tap-highlight-color: transparent;
+}
+.flip-match-container .flip-card:disabled {
+  cursor: default;
+}
+.flip-match-container .flip-card__inner {
+  position: absolute;
+  inset: 0;
+  border-radius: 15px;
+  transform-style: preserve-3d;
+  transition: transform 0.4s ease;
+}
+.flip-match-container .flip-card__back {
+  position: absolute;
+  inset: 0;
+  border-radius: 15px;
+  background: #63c5fd;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+}
+.flip-match-container .flip-card__back::before {
+  content: '';
+  position: absolute;
+  inset: 8px;
+  border: 2px solid rgba(10, 150, 230, 0.6);
+  border-radius: 8px;
+  pointer-events: none;
+}
+.flip-match-container .flip-card__question {
+  font-family: 'Mikado', sans-serif;
+  font-size: 48px;
+  font-weight: 700;
+  color: white;
+  line-height: 1;
+  letter-spacing: 0.25px;
+  text-align: center;
+}
+.flip-match-container .flip-card__front {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: white;
+  border-radius: 15px;
+  overflow: hidden;
+  transform: rotateY(180deg);
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  padding: 0;
+}
+.flip-match-container .flip-card__img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.flip-match-container .flip-card__text {
+  font-family: 'Mikado', sans-serif;
+  font-size: 24px;
+  font-weight: 700;
+  color: #0a96e6;
+  text-align: center;
+  line-height: 1.2;
+  word-break: break-word;
+  padding: 8px;
+}
+.flip-match-container .flip-card__check {
+  position: absolute;
+  bottom: 6px;
+  right: 6px;
+  width: 17px;
+  height: 17px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  opacity: 0;
+  transition: opacity 0.2s ease 0.4s;
+}
+.flip-match-container .flip-card--open .flip-card__inner {
+  transform: rotateY(180deg);
+}
+.flip-match-container .flip-card--matched .flip-card__inner {
+  transform: rotateY(180deg);
+}
+.flip-match-container .flip-card--matched .flip-card__front {
+  transition: outline 0s 0.4s;
+}
+.flip-match-container .flip-card--matched .flip-card__check {
+  opacity: 1;
+}
+.flip-match-container .flip-card--wrong .flip-card__inner {
+  transform: rotateY(180deg);
+}
+
+/* Drag fill — ported from drawer-drag-fill.component.scss. */
+.df-root {
+  height: 100%;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  background: #ccecff;
+  padding: 16px 22px 20px;
+  overflow: hidden;
+  container-type: size;
+}
+.df-timer-row {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+  margin-bottom: 18px;
+  flex-shrink: 0;
+}
+.df-timer-secs {
+  font-family: 'Mikado', sans-serif;
+  font-size: 10px;
+  font-weight: 700;
+  color: #0d9ce7;
+  letter-spacing: 0.25px;
+  line-height: 1;
+}
+.df-timer-bar {
+  width: 100%;
+  height: 14px;
+  border-radius: 8px;
+  background: #d3ddec;
+  overflow: hidden;
+}
+.df-timer-fill {
+  height: 100%;
+  border-radius: 7px;
+  background: #0d9ce7;
+  transition: width 0.1s linear;
+}
+.df-instruction {
+  font-family: 'Mikado', sans-serif;
+  font-size: 22px;
+  font-weight: 700;
+  color: #3c4b62;
+  line-height: 28px;
+  letter-spacing: 0.25px;
+  margin: 0;
+  flex-shrink: 0;
+}
+.df-items {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 13px;
+  justify-content: center;
+  padding: 12px 0;
+}
+.df-item {
+  width: 100%;
+  aspect-ratio: 255 / 162;
+  border-radius: 16px;
+  border: 4px solid #63c5fd;
+  background: white;
+  overflow: hidden;
+  transition: opacity 0.25s;
+  flex-shrink: 0;
+}
+.df-item--dragging {
+  opacity: 0.4;
+  border-color: #d1d8e2;
+}
+.df-item--placed {
+  opacity: 0.4;
+  border-color: #d1d8e2;
+}
+.df-item--draggable {
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+.df-item__img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-user-drag: none;
+}
+
+/* Tap match (match-characters) — ported from drawer-tap-match.component.scss. */
+.tap-match-container {
+  height: 100%;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  padding: 20px 12px;
+}
+.tap-match-container .tap-match-title {
+  font-size: 20px;
+  font-weight: 700;
+  color: ${V.C_EXCLAIM_BLUE};
+  text-align: center;
+  margin: 0;
+}
+.tap-match-container .tap-match-question {
+  background: #f0f5ff;
+  border-radius: ${V.R_M};
+  padding: 14px 16px;
+  width: 100%;
+  text-align: center;
+}
+.tap-match-container .tap-match-question__text {
+  font-size: 16px;
+  font-weight: 700;
+  color: #2a3a54;
+  margin: 0 0 6px;
+}
+.tap-match-container .tap-match-question__progress {
+  font-size: 12px;
+  color: #6b7c99;
+  margin: 0;
+}
+.tap-match-container .tap-match-characters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  justify-content: center;
+  width: 100%;
+}
+.tap-match-container .tap-match-char {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  width: 80px;
+  background: ${V.C_WHITE};
+  border: 2px solid #d0d7e8;
+  border-radius: ${V.R_M};
+  padding: 8px 4px;
+  cursor: pointer;
+  transition: border-color 0.2s, transform 0.1s;
+}
+.tap-match-container .tap-match-char:hover:not(:disabled) {
+  border-color: ${V.C_EXCLAIM_BLUE};
+  transform: scale(1.04);
+}
+.tap-match-container .tap-match-char:disabled {
+  cursor: default;
+}
+.tap-match-container .tap-match-char--matched {
+  border-color: #008845;
+  background: #edfcb4;
+}
+.tap-match-container .tap-match-char__img {
+  width: 52px;
+  height: 52px;
+  object-fit: contain;
+}
+.tap-match-container .tap-match-char__name {
+  font-size: 11px;
+  font-weight: 600;
+  color: #3c4b62;
+  text-align: center;
+  line-height: 1.2;
+}
+.tap-match-container .tap-match-char__check {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  font-size: 14px;
+  color: #008845;
+}
+.tap-match-container .tap-match-result {
+  font-size: 18px;
+  font-weight: 700;
+  color: #008845;
+  text-align: center;
+}
+
+/* Html card (h5-info-card / egg-html) — ported from drawer-html-card.component.scss. */
+.html-card-container {
+  height: 100%;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 20px 12px;
+}
+.html-card-container .html-card-title {
+  font-size: 20px;
+  font-weight: 700;
+  color: ${V.C_EXCLAIM_BLUE};
+  text-align: center;
+  margin: 0;
+  flex-shrink: 0;
+}
+.html-card-container .html-card-frame-wrap {
+  flex: 1;
+  border-radius: ${V.R_M};
+  overflow: hidden;
+  border: 2px solid #d0d7e8;
+}
+.html-card-container .html-card-frame {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+.html-card-container .html-card-empty {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #6b7c99;
+  font-size: 14px;
+}
+
+/* Flashcard — fill in the missing face/back rules. The container/flip/face
+   + .flashcard-face p + .flashcard-face .epic-btn already exist above in
+   DRAWER_CSS; the source's .flashcard-back (rotateY) was missing. */
+.flashcard-back {
+  transform: rotateY(180deg);
 }
 `
 
@@ -1341,176 +2295,6 @@ const MODAL_CSS = `
   color: #fff;
 }
 
-/* Key/gem/portal overlay (reading-area) */
-.key-gem-overlay {
-  display: contents;
-}
-.key-overlay {
-  position: absolute;
-  right: 5%;
-  top: 5%;
-  height: 13cqh;
-  aspect-ratio: 1;
-  pointer-events: auto;
-  cursor: default;
-  opacity: 0.4;
-  transition: opacity 0.2s ease;
-}
-.key-overlay:hover,
-.key-overlay--animating {
-  opacity: 1;
-}
-.key-overlay__base {
-  position: absolute;
-  inset: 0;
-  border-radius: 50%;
-  background: white;
-  box-shadow: ${V.SHADOW_DISTANT};
-  z-index: 0;
-}
-.key-overlay__base::before {
-  content: '';
-  position: absolute;
-  inset: 4%;
-  border-radius: 50%;
-  background: #c9f6f9;
-}
-.key-overlay__key-wrap {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  height: 82%;
-  aspect-ratio: 179 / 260;
-  z-index: 1;
-}
-.key-overlay__img {
-  width: 100%;
-  height: auto;
-  display: block;
-  position: relative;
-  z-index: 1;
-}
-.key-overlay__img--no-shadow {
-  filter: none;
-}
-.key-overlay__img--lottie {
-  position: absolute;
-  inset: 0;
-  transform: scale(1.4) translateY(-3%);
-  transform-origin: center;
-}
-.key-overlay__gem {
-  position: absolute;
-  transform: translate(-50%, -50%) rotate(var(--gem-rotate, 0deg));
-  opacity: 0;
-  transition: opacity 0.4s ease;
-  z-index: 2;
-}
-.key-overlay__gem--0 {
-  left: 21%;
-  top: 30%;
-  width: 18%;
-  --gem-scale: 1;
-  --gem-offset-x: 0px;
-  --gem-offset-y: 0px;
-  --gem-rotate: -18deg;
-}
-.key-overlay__gem--1 {
-  left: 49.5%;
-  top: 30%;
-  width: 23%;
-  --gem-scale: 1;
-  --gem-offset-x: 0px;
-  --gem-offset-y: 0px;
-}
-.key-overlay__gem--2 {
-  left: 81.5%;
-  top: 31%;
-  width: 19%;
-  --gem-scale: 1;
-  --gem-offset-x: 0px;
-  --gem-offset-y: 0px;
-  --gem-rotate: 20deg;
-}
-.key-overlay__gem--visible {
-  opacity: 1;
-}
-.key-overlay__gem img {
-  width: 100%;
-  height: auto;
-  display: block;
-  transform: scale(var(--gem-scale, 1)) translate(var(--gem-offset-x, 0px), var(--gem-offset-y, 0px));
-}
-.portal-overlay {
-  position: absolute;
-  transform: translate(-50%, -50%);
-  width: 20%;
-  pointer-events: none;
-  z-index: 5;
-}
-.portal-tooltip {
-  position: absolute;
-  bottom: 94%;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 230px;
-  pointer-events: none;
-  z-index: 1;
-}
-.portal-tooltip__bubble {
-  background-image: url('/assets/epic-labs/speech-bubble.png');
-  background-size: 100% 100%;
-  background-repeat: no-repeat;
-  padding: 12px 10px;
-  padding-bottom: 16%;
-}
-.portal-tooltip__inner {
-  padding: 0;
-}
-.portal-tooltip__text {
-  font-family: ${V.FONT_SECONDARY};
-  font-weight: 700;
-  font-size: 14px;
-  line-height: 16px;
-  text-align: center;
-}
-.portal-tooltip__text b {
-  color: ${V.C_EXCLAIM_BLUE};
-}
-.portal-anims {
-  position: relative;
-  width: 100%;
-}
-.portal-anim {
-  width: 100%;
-  height: auto;
-  pointer-events: none;
-  display: block;
-  opacity: 0;
-}
-.portal-anim--active {
-  opacity: 1;
-}
-.portal-anim--stack {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-}
-.portal-click-zone {
-  position: absolute;
-  top: 15%;
-  left: 25%;
-  width: 50%;
-  height: 50%;
-  border: none;
-  background: transparent;
-  cursor: pointer;
-  pointer-events: auto;
-  z-index: 2;
-}
-
 /* Treasure modal (key-ready celebration) — ported from treasure-modal.component.scss.
    Source renders its own full-screen overlay (not a Material Dialog), so we keep
    position:fixed + scrim to cover the viewport. Content has no white card — the
@@ -1695,18 +2479,53 @@ declare const __EXTENSION_GLOBAL_NAME__: string
       bookRatingData: null as BookRatingDialogData | null,
     })
     let previousPage = state.page
+    // The reader's book data and current-page both hydrate asynchronously.
+    // At activate() time either can be unresolved:
+    //   - labData not yet a valid string → getLabsData() returns null
+    //   - getCurrentPage() still 0 → matches no parsed pageNumber → stars empty
+    // Both resolve lazily (parsedLabsData isn't cached on null; the reader
+    // sets the real page once the book is open). If our initial state landed on
+    // an invalid page (state.page not in any parsed page), poll until it
+    // resolves to a valid one — then sync the reactive state so StarOverlay
+    // renders without needing a manual page turn. Stops on success or timeout.
+    const initialPageValid = !!bookData && state.page > 0
+    if (!initialPageValid) {
+      let syncTries = 0
+      const syncTimer = setInterval(() => {
+        syncTries += 1
+        const data = getLabsData(context)
+        const page = context.data.getCurrentPage()
+        const pageValid = !!data && page > 0
+        if (pageValid) {
+          clearInterval(syncTimer)
+          state.page = page
+          state.stars = getCurrentPageStars(context)
+          state.clickVideos = getCurrentPageClickVideos(context)
+          state.shots = getCurrentPageShots(context)
+          mountShotOverlay()
+          // bookData resolved late — mount the KeyGemOverlay if this book has a
+          // treasure config and it wasn't mounted at activate() time (guarded
+          // internally so it only mounts once).
+          if (data?.treasureConfig) {
+            mountKeyGemOverlay(data)
+          }
+          // Prime the next-page preload now that we know the page layout.
+          shotPreloadQueue.enqueuePage(
+            getNextPageShots(context).map((s) => appendCacheBuster(s.url)),
+          )
+        } else if (syncTries >= 100) {
+          // ~10s at 100ms; give up silently — empty labs / page 0 may be a
+          // valid initial state for books with no interactive content.
+          clearInterval(syncTimer)
+        }
+      }, 100)
+    }
 
     // Stash ids so the KeyGemOverlay can restore them once mounted (below).
+    // The restore + persist now live inside mountKeyGemOverlay() so they run
+    // on both the immediate and deferred mount paths.
     let pendingRestoreIds: string[] | null = null
 
-    // Restore previously collected keys for this book (no animation).
-    if (bookData?.treasureConfig && state.bookId !== undefined) {
-      const collected = treasureService.loadPersisted(state.bookId)
-      if (collected.length) {
-        pendingRestoreIds = collected
-      }
-      treasureService.persist(state.bookId)
-    }
 
     // page exposure analytics on first load
     exposureStarCount += state.stars.filter((s: Star) => s.type !== 'game').length
@@ -1732,6 +2551,7 @@ declare const __EXTENSION_GLOBAL_NAME__: string
       context,
       state,
       store: drawerStore,
+      memory: interactionMemory,
       clickVideos: state.clickVideos,
       // Wire click-video buttons to open the video modal.
       onVideoClick: (url: string) => {
@@ -1849,11 +2669,35 @@ declare const __EXTENSION_GLOBAL_NAME__: string
           `width:${rect.width}px`,
           `height:${rect.height}px`,
           'pointer-events:none',
+          // Above the shot overlay's white backing (.shot-overlay-root sits at
+          // z-index:0 via shotContainer). Without this, the shot player's opaque
+          // white .shot-overlay covers the key/gem/portal layer on pages that
+          // have shots — only the key region faintly shows through at opacity
+          // 0.4 (hover → 1). Matching star-overlay's z-index:1 keeps the key/gem
+          // interaction layer above the video, same as the original EpicWeb
+          // (which has no shot white-backing at all).
+          'z-index:1',
           'container-type:size',
         ].join(';')
       })
     }
-    if (bookData?.treasureConfig) {
+    // Lazily mount the KeyGemOverlay once bookData with a treasureConfig is
+    // available. The reader's labData hydrates asynchronously — at activate()
+    // time bookData may still be null (see the page-sync polling above). The
+    // original EpicWeb KeyGemOverlay is template-driven (*ngIf on
+    // treasureConfig) so it renders the moment data arrives; here we replicate
+    // that by calling this both immediately (if bookData is ready) and from the
+    // page-sync poller once bookData resolves. Guarded so it only mounts once.
+    const mountKeyGemOverlay = (data: EpicReaderBookData) => {
+      if (keyGemApp || !data.treasureConfig) return
+      // Restore previously collected keys for this book (no animation) and
+      // register persistence. Done here — not in activate's main body — so the
+      // deferred mount path (data arriving late via the poller) also restores.
+      if (state.bookId !== undefined) {
+        const collected = treasureService.loadPersisted(state.bookId)
+        if (collected.length) pendingRestoreIds = collected
+        treasureService.persist(state.bookId)
+      }
       keyGemContainer = document.createElement('div')
       starContainer.appendChild(keyGemContainer)
       updateKeyGemPosition()
@@ -1863,7 +2707,7 @@ declare const __EXTENSION_GLOBAL_NAME__: string
       window.addEventListener('resize', keyGemResizeHandler)
 
       keyGemApp = createApp(KeyGemOverlay, {
-        epicLabsBookData: bookData,
+        epicLabsBookData: data,
         currentPage: state.page,
         bookId: state.bookId,
         drawerDimensions: { drawerWidth: 480, drawerHeight: 640 },
@@ -1882,6 +2726,9 @@ declare const __EXTENSION_GLOBAL_NAME__: string
         },
       })
       keyGemApp.mount(keyGemContainer)
+    }
+    if (bookData?.treasureConfig) {
+      mountKeyGemOverlay(bookData)
     }
 
     const openVideoModal = (type: 'start' | 'end') => {
@@ -1902,7 +2749,7 @@ declare const __EXTENSION_GLOBAL_NAME__: string
       // Fire PAGE_CLOSE for the page we're leaving, using its accumulated stats.
       const prevPage = state.page
       const prevStars = state.stars
-      const stayDuration = Date.now() - currentPageOpenedAt
+      const stayDuration = Math.round((Date.now() - currentPageOpenedAt) / 1000)
       const metrics = drawerStore.getCloseMetrics()
       analytics.log(EPIC_LABS_PAGE_CLOSE, {
         has_star: prevStars.length > 0,
@@ -1999,7 +2846,7 @@ declare const __EXTENSION_GLOBAL_NAME__: string
           analytics.log(EPIC_LABS_CLOSE_STAR, {
             star_index: metrics.starIndex,
             star_type: metrics.starType,
-            stay_duration: drawerStore.getStayDuration(),
+            stay_duration: Math.round(drawerStore.getStayDuration() / 1000),
             has_animation: 0,
             has_treasure: metrics.hasTreasure ? 1 : 0,
             is_star_completed: metrics.isStarComplete ? 1 : 0,
@@ -2213,7 +3060,7 @@ declare const __EXTENSION_GLOBAL_NAME__: string
     // --- Cleanup ---
     return () => {
       // Reading session ending — fire the final page-close and exit events.
-      const finalStayDuration = Date.now() - currentPageOpenedAt
+      const finalStayDuration = Math.round((Date.now() - currentPageOpenedAt) / 1000)
       analytics.log(EPIC_LABS_PAGE_CLOSE, {
         has_star: state.stars.length > 0,
         page_index: state.page,
@@ -2224,11 +3071,15 @@ declare const __EXTENSION_GLOBAL_NAME__: string
         star_clicked: clickedStarCount > 0 ? 1 : 0,
         click_count: clickedStarCount,
       })
-      const readingDuration = Date.now() - sessionStart
+      // Durations are logged in seconds to match EpicWeb (it Math.round(ms/1000)
+      // for both stay_duration and reading_duration — epic-labs.component.ts:1051,1541).
+      const readingDuration = Math.round((Date.now() - sessionStart) / 1000)
       analytics.log(EPIC_LABS_EXIT_READING, {
         treasure_collected_count: treasureService.getCollectedCount(),
         treasure_total_count: treasureService.getTotalCount(),
-        is_treasure_box_opened: 0,
+        // Matches EpicWeb: "is_treasure_box_opened = game has been unlocked
+        // (all treasures collected)" — epic-labs.component.ts:1533.
+        is_treasure_box_opened: treasureService.isGameUnlocked() ? 1 : 0,
         reading_duration: readingDuration,
         exposed_star_count: exposureStarCount,
         clicked_star_count: clickedStarCount,

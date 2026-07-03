@@ -4,6 +4,7 @@ import lottie from 'lottie-web/build/player/lottie_light'
 import type { AnimationItem } from 'lottie-web'
 import type { ExtensionContext, Star, DragFillItem, HotspotRegion, ClickVideo } from '../types'
 import type { DrawerStore, InteractionCommand } from '../composables/useDrawerStore'
+import type { InteractionMemory } from '../composables/useInteractionMemory'
 import { dfX, dfW, hsX, hsW } from '../utils/coords'
 
 const props = defineProps<{
@@ -14,6 +15,7 @@ const props = defineProps<{
     stars: Star[]
   }
   store?: DrawerStore
+  memory?: InteractionMemory
   clickVideos?: ClickVideo[]
   /** Called when a click-video button is tapped — opens the video modal. */
   onVideoClick?: (url: string) => void
@@ -31,6 +33,7 @@ const flipBookStyle = ref<Record<string, string>>({})
 const dragFillDropZones = ref<DragFillItem[]>([])
 const dragFillPlacedItems = ref<DragFillItem[]>([])
 const dragFillDirection = ref<'left' | 'right'>('right')
+const dragFillTempPageUrl = ref<string | undefined>(undefined)
 const hotspotCorrectRegion = ref<HotspotRegion | null>(null)
 const hotspotWrongRegion = ref<HotspotRegion | null>(null)
 const hotspotTappedState = ref<'correct' | 'wrong' | null>(null)
@@ -120,9 +123,11 @@ function onDropZonePointerUp(zone: DragFillItem) {
   if (isCorrect) {
     dragFillPlacedItems.value = [...dragFillPlacedItems.value, zone]
     if (dragFillPlacedItems.value.length >= dragFillDropZones.value.length) {
-      // all zones filled — clear the interaction layer
+      // all zones filled — clear the interaction layer (incl. temp_page so the
+      // original book page shows through again)
       dragFillPlacedItems.value = []
       dragFillDropZones.value = []
+      dragFillTempPageUrl.value = undefined
     }
   }
 }
@@ -150,14 +155,37 @@ function onClickVideoClick(index: number) {
   if (url) props.onVideoClick?.(url)
 }
 
+/**
+ * drag-fill pages auto-show their drop zones + temp_page as soon as the page is
+ * reached — the user taps a + Place button to open the drawer and drag. Ported
+ * from EpicWeb EpicLabsComponent.autoInjectDragFillIfNeeded. Skipped when the
+ * card is already completed this session (so a finished fill-in-the-blank
+ * reverts to the original page instead of re-showing empty slots).
+ */
+function autoInjectDragFill() {
+  const stars = props.state.stars || []
+  const dragFillStar = stars.find((s) => s.type === 'drag-fill')
+  if (!dragFillStar) return
+  const dragFillIndex = stars.indexOf(dragFillStar)
+  if (props.memory?.isCardCompleted(props.state.page, dragFillIndex)) return
+
+  const content = dragFillStar.content
+  dragFillDropZones.value = content.dragFillItems ?? []
+  dragFillPlacedItems.value = []
+  dragFillDirection.value = content.dragFillTempPageDirection ?? 'right'
+  dragFillTempPageUrl.value = content.dragFillTempPageUrl
+}
+
 function handleCommand(cmd: InteractionCommand) {
   if (cmd.type === 'highlight-drag-targets') {
     dragFillDropZones.value = cmd.items
     dragFillPlacedItems.value = []
     dragFillDirection.value = cmd.tempPageDirection ?? 'right'
-    // Note: epic-labs also injects a temp_page background image across both
-    // page slots here. That requires manipulating sibling slots and is
-    // deferred — the placed-item images themselves mark filled slots.
+    // temp_page is the fill-in-the-blank "question" image that overlays the
+    // entire book page (ported from epic-labs injectDragFillTempPage). The
+    // SDK's reading-area slot host IS the full 2-page spread, so a single
+    // width:100% image covers it (EpicWeb needed width:200% across two slots).
+    dragFillTempPageUrl.value = cmd.tempPageUrl
   } else if (cmd.type === 'show-hotspot-regions') {
     hotspotCorrectRegion.value = cmd.correctRegion
     hotspotWrongRegion.value = cmd.wrongRegion
@@ -176,22 +204,44 @@ watch(
     // page turn — reset interaction layers
     dragFillDropZones.value = []
     dragFillPlacedItems.value = []
+    dragFillTempPageUrl.value = undefined
     hotspotCorrectRegion.value = null
     hotspotWrongRegion.value = null
     hotspotTappedState.value = null
     clickVideoPlaying.value.clear()
     await nextTick()
+    autoInjectDragFill()
     initLottieAnimations()
   },
 )
 
+let flipBookResizeObserver: ResizeObserver | null = null
+
 onMounted(() => {
   updateFlipBookPosition()
   nextTick(() => initLottieAnimations())
+  autoInjectDragFill()
   unsubCommand = props.store?.interactionCommand.on(handleCommand) ?? null
+
+  // The flip-book rect (getFlipBookRect) may not be available at mount time —
+  // the reader hydrates asynchronously, and the rect also changes on page
+  // turns / window resize. Without re-fetching, .star-overlay keeps a stale
+  // (or empty {}) style, so .star-container collapses to 0×0 and every cqh-
+  // based size (drop-zone btn/plus/label, star-button) computes to 0 → the
+  // whole interaction layer is invisible. Observe the slot host: whenever its
+  // layout changes, recompute the flip-book position.
+  const slotHost = (props.context.slots.get('reading-area') as ShadowRoot)?.host
+  if (slotHost && typeof ResizeObserver !== 'undefined') {
+    flipBookResizeObserver = new ResizeObserver(() => {
+      updateFlipBookPosition()
+    })
+    flipBookResizeObserver.observe(slotHost)
+  }
 })
 
 onBeforeUnmount(() => {
+  flipBookResizeObserver?.disconnect()
+  flipBookResizeObserver = null
   animations.forEach((a) => a.destroy())
   animations.length = 0
   unsubCommand?.()
@@ -202,6 +252,16 @@ onBeforeUnmount(() => {
 <template>
   <div class="star-overlay" :style="flipBookStyle">
     <div class="star-container">
+      <!-- drag-fill temp_page: fill-in-the-blank question image overlaid on the
+           whole book page while drag-fill is active -->
+      <img
+        v-if="dragFillTempPageUrl"
+        :src="dragFillTempPageUrl"
+        class="drag-fill-temp-page"
+        draggable="false"
+        aria-hidden="true"
+      />
+
       <!-- Stars (skip drag-fill — it has no star button, only drop zones) -->
       <button
         v-for="(star, index) in state.stars"
