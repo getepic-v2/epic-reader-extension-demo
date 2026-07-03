@@ -239,22 +239,30 @@ watch(portalState, (state, prev) => {
 let defaultPortalAnim: AnimationItem | null = null
 
 // Key shine lottie: load on demand when keyState flips to 'shine'.
-watch(keyState, (state) => {
-  if (state === 'shine' && keyShineEl.value && !keyShineAnim) {
-    keyShineAnim = lottie.loadAnimation({
-      container: keyShineEl.value,
-      renderer: 'svg',
-      loop: false,
-      autoplay: true,
-      path: KEY_SHINE_PATH,
-    })
-    keyShineAnim.addEventListener('complete', () => {
-      keyState.value = 'normal'
-      keyAnimating.value = false
-      keyShineAnim?.destroy()
-      keyShineAnim = null
-    })
-  }
+// keyShineEl is rendered by v-if="keyState === 'shine'", so at the moment the
+// watcher fires the ref isn't bound yet — defer to nextTick so the element
+// exists before lottie mounts into it. Without this, the lottie never loads,
+// its 'complete' never fires, and keyAnimating stays true forever → the key
+// region stays at opacity:1 (never returns to its 0.4 resting state) after a
+// gem is collected.
+watch(keyState, async (state) => {
+  if (state !== 'shine' || keyShineAnim) return
+  await nextTick()
+  const el = keyShineEl.value
+  if (!el || keyShineAnim) return
+  keyShineAnim = lottie.loadAnimation({
+    container: el,
+    renderer: 'svg',
+    loop: false,
+    autoplay: true,
+    path: KEY_SHINE_PATH,
+  })
+  keyShineAnim.addEventListener('complete', () => {
+    keyState.value = 'normal'
+    keyAnimating.value = false
+    keyShineAnim?.destroy()
+    keyShineAnim = null
+  })
 })
 
 // --- Public methods (exposed for parent imperative calls) ---
@@ -325,9 +333,20 @@ function resetPortalVisualState(): void {
   keyState.value = 'normal'
   keyAnimating.value = false
   portalState.value = 'default'
-  const filled = [...filledSlotIndices.value]
-  for (let i = 0; i < filled.length; i++) {
-    filled[i] = i < gemCount.value
+  // Rebuild filled slots from each collected gem's REAL slotIndex (via the
+  // treasure service), NOT from gemCount. The old `i < gemCount` heuristic
+  // filled the first N slots in count order — which mismatched the actual
+  // slot each gem flew into when gems were collected out of page order (e.g.
+  // slot 1 collected before slot 0). That made a gem's color flip between
+  // its fly-in (real slot) and post-page-turn display (count-order slot).
+  // This mirrors restoreGems() exactly so both paths agree.
+  const ts = props.treasureService
+  const filled = [...filledSlotIndices.value].fill(false)
+  for (const id of ts.getCollectedIds()) {
+    const slotIndex = ts.getSlotIndex(id)
+    if (slotIndex >= 0 && slotIndex < filled.length) {
+      filled[slotIndex] = true
+    }
   }
   filledSlotIndices.value = filled
 }
