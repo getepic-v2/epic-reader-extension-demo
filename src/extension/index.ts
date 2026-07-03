@@ -18,6 +18,7 @@ import type {
   VideoModalResult,
   EpicLabsGuideModalResult,
   BookRatingDialogData,
+  DrawerCompleteEvent,
 } from './types'
 import { parseLabsXml } from './utils/parse-labs-xml'
 import { ShotPlayer } from './shot-player'
@@ -76,6 +77,10 @@ function getCurrentPageClickVideos(context: ExtensionContext): ClickVideo[] {
 
 function getCurrentPageShots(context: ExtensionContext): Shot[] {
   return getCurrentPage(context)?.shots || []
+}
+
+function getCurrentPageMotionUrl(context: ExtensionContext): string | undefined {
+  return getCurrentPage(context)?.motionUrl || undefined
 }
 
 /**
@@ -2436,6 +2441,165 @@ declare const __EXTENSION_GLOBAL_NAME__: string
       () => ({ drawerWidth: 480, drawerHeight: 640 }),
     )
 
+    // --- Motion reward video (ported from EpicWeb inject/preload/showMotionContent) ---
+    // A page with a `motion_url` plays a reward video over the book page once the
+    // page's interaction is completed (comets lottie → motion video → collect gem).
+    // - Pages with NO gating stars (or already-unlocked motion) play immediately on entry.
+    // - Pages with stars inject the video hidden so the browser buffers while the
+    //   user answers; it's revealed+played on completion.
+    let currentMotionUrl: string | null = null
+    const motionUnlockedPages = new Set<number>()
+    const motionVideoEls: HTMLVideoElement[] = []
+    let motionContainer: HTMLElement | null = null
+    let motionResizeRafId: number | null = null
+
+    function updateMotionPosition() {
+      if (!motionContainer) return
+      if (motionResizeRafId !== null) cancelAnimationFrame(motionResizeRafId)
+      motionResizeRafId = requestAnimationFrame(() => {
+        motionResizeRafId = null
+        const rect = context.data.getFlipBookRect()
+        if (!rect || !motionContainer) return
+        const hostRect = (readingRoot as ShadowRoot).host.getBoundingClientRect()
+        motionContainer.style.cssText = [
+          'position:absolute',
+          `top:${rect.y - hostRect.y}px`,
+          `left:${rect.x - hostRect.x}px`,
+          `width:${rect.width}px`,
+          `height:${rect.height}px`,
+          'pointer-events:none',
+          // Above the book page, below star-overlay (z-index:1) so stars/drop
+          // zones stay tappable; above shot overlay (z-index:0).
+          'z-index:0',
+        ].join(';')
+      })
+    }
+
+    function clearMotionContent() {
+      for (const video of motionVideoEls) video.remove()
+      motionVideoEls.length = 0
+    }
+
+    function ensureMotionContainer() {
+      if (motionContainer) return motionContainer
+      motionContainer = document.createElement('div')
+      motionContainer.className = 'motion-overlay-root'
+      starContainer.appendChild(motionContainer)
+      updateMotionPosition()
+      return motionContainer
+    }
+
+    /** Inject motion video(s) covering the whole book page. `hidden` preloads
+     *  without playing (used while the user is answering gated stars). */
+    function injectMotionContent(hidden: boolean) {
+      clearMotionContent()
+      if (!currentMotionUrl) return
+      ensureMotionContainer()
+      const url = currentMotionUrl
+      // A single video covers the full 2-page spread (the SDK reading-area slot
+      // host IS the spread). EpicWeb injected two width:200% videos across two
+      // page slots; one width:100% video is equivalent here.
+      const video = document.createElement('video')
+      video.src = url
+      video.muted = true
+      video.loop = false
+      video.setAttribute('playsinline', '')
+      video.preload = hidden ? 'auto' : 'auto'
+      video.autoplay = !hidden
+      video.addEventListener('ended', () => video.pause())
+      video.style.cssText = `position:absolute;top:0;left:0;width:100%;height:100%;object-fit:fill;pointer-events:none;${hidden ? 'display:none;' : ''}`
+      motionContainer!.appendChild(video)
+      motionVideoEls.push(video)
+    }
+
+    function showMotionContent() {
+      if (motionVideoEls.length === 0) {
+        // Not preloaded — inject + play now.
+        injectMotionContent(false)
+        return
+      }
+      for (const video of motionVideoEls) {
+        video.style.display = ''
+        video.play().catch(() => {})
+      }
+    }
+
+    /** Play the motion reward video to completion (resolves on 'ended'). */
+    function playMotionVideoAndWait(): Promise<void> {
+      return new Promise((resolve) => {
+        showMotionContent()
+        const video = motionVideoEls[0]
+        if (!video) {
+          resolve()
+          return
+        }
+        const handler = () => {
+          video.removeEventListener('ended', handler)
+          resolve()
+        }
+        video.addEventListener('ended', handler)
+        // Safety: if the video has no decodable stream it never fires 'ended'.
+        // Resolve anyway after a generous timeout so the gem still collects.
+        const safety = setTimeout(() => {
+          video.removeEventListener('ended', handler)
+          resolve()
+        }, 30000)
+        video.addEventListener('ended', () => clearTimeout(safety))
+      })
+    }
+
+    /**
+     * Play all completion animations in sequence (comets lottie → motion video),
+     * mirroring EpicWeb playCompletionAnimations. Returns a Promise that resolves
+     * when done (or null if nothing to play). launchComets needs the mark layer
+     * (the reading-area slot host) to compute comet landing points.
+     */
+    function playCompletionAnimations(star: Star | null | undefined): Promise<void> | null {
+      const activationPoints = star?.content?.flipMatchActivationPoints
+      const hasComets = !!activationPoints?.length
+      const hasMotionVideo = !!currentMotionUrl
+      if (!hasComets && !hasMotionVideo) return null
+
+      const markLayerEl = (context.slots.get('reading-area') as ShadowRoot | undefined)?.host as
+        | HTMLElement
+        | undefined
+      let chain: Promise<void> = Promise.resolve()
+
+      if (hasComets) {
+        const cometsDone = motionOverlay.launchComets(activationPoints!, markLayerEl)
+        chain = chain.then(() => cometsDone)
+      } else {
+        // No activation_points → launch a single default-center comet.
+        const defaultPoint = { id: 'default', xPercent: 50, yPercent: 50 }
+        const cometsDone = motionOverlay.launchComets([defaultPoint], markLayerEl)
+        chain = chain.then(() => cometsDone)
+      }
+
+      if (hasMotionVideo) {
+        chain = chain.then(() => playMotionVideoAndWait())
+      }
+      return chain
+    }
+
+    /**
+     * Called on entry to a page: sets currentMotionUrl and either plays the
+     * motion reward immediately (no gating stars, or already unlocked) or
+     * injects it hidden so the browser buffers while the user answers.
+     * Mirrors EpicWeb onPageChange motion handling.
+     */
+    function setupPageMotion(pageStars: Star[]) {
+      currentMotionUrl = getCurrentPageMotionUrl(context) ?? null
+      const page = context.data.getCurrentPage()
+      const hasGatingStars = pageStars.some((s) => s.type !== 'game')
+      if (!hasGatingStars || motionUnlockedPages.has(page)) {
+        // No gating, or already unlocked on a prior visit — play immediately.
+        if (currentMotionUrl) injectMotionContent(false)
+      } else {
+        // Has stars: inject hidden so the browser buffers while user answers.
+        if (currentMotionUrl) injectMotionContent(true)
+      }
+    }
+
     const bookData = getLabsData(context)
 
     // --- Session-level accumulators for reading-flow analytics ---
@@ -2502,6 +2666,7 @@ declare const __EXTENSION_GLOBAL_NAME__: string
           state.stars = getCurrentPageStars(context)
           state.clickVideos = getCurrentPageClickVideos(context)
           state.shots = getCurrentPageShots(context)
+          // Motion reward is set up after starContainer exists (see below).
           mountShotOverlay()
           // bookData resolved late — mount the KeyGemOverlay if this book has a
           // treasure config and it wasn't mounted at activate() time (guarded
@@ -2562,6 +2727,10 @@ declare const __EXTENSION_GLOBAL_NAME__: string
       },
     })
     starApp.mount(starContainer)
+
+    // Set up the initial page's motion reward now that starContainer exists.
+    // (setupPageMotion is also called on every pageChange below.)
+    setupPageMotion(state.stars)
 
     // --- Shot video overlay — per-page <shots> sequence, below star-overlay ---
     const shotPreloadQueue = createShotPreloadQueue()
@@ -2643,9 +2812,15 @@ declare const __EXTENSION_GLOBAL_NAME__: string
     shotPreloadQueue.enqueuePage(
       getNextPageShots(context).map((s) => appendCacheBuster(s.url)),
     )
-    shotResizeObserver = new ResizeObserver(updateShotPosition)
+    shotResizeObserver = new ResizeObserver(() => {
+      updateShotPosition()
+      updateMotionPosition()
+    })
     shotResizeObserver.observe((readingRoot as ShadowRoot).host)
-    shotResizeHandler = updateShotPosition
+    shotResizeHandler = () => {
+      updateShotPosition()
+      updateMotionPosition()
+    }
     window.addEventListener('resize', shotResizeHandler)
 
     // Key/gem/portal overlay — only when the book has a treasure config.
@@ -2769,6 +2944,10 @@ declare const __EXTENSION_GLOBAL_NAME__: string
       state.stars = getCurrentPageStars(context)
       state.clickVideos = getCurrentPageClickVideos(context)
       state.shots = getCurrentPageShots(context)
+      // Clear the previous page's motion reward video before setting up the new one.
+      clearMotionContent()
+      setupPageMotion(state.stars)
+      updateMotionPosition()
       state.selectedStar = null
       drawerStore.resetDrawerState()
       keyGemOverlayRef?.resetPortalVisualState()
@@ -2831,9 +3010,6 @@ declare const __EXTENSION_GLOBAL_NAME__: string
             star: state.selectedStar,
             analytics,
             bookId: state.bookId,
-            onTreasureCollect: (interactionId: string, starIndex: number, starType?: string) => {
-              keyGemOverlayRef?.collect(interactionId, starIndex, starType)
-            },
           })
           drawerApp.mount(drawerContainer)
         } catch {
@@ -2859,6 +3035,52 @@ declare const __EXTENSION_GLOBAL_NAME__: string
         drawerApp = null
         drawerContainer = null
         drawerStore.clearCloseMetrics()
+      }
+    })
+
+    // --- Completion reward: comets lottie → motion video → collect gem ---
+    // Ported from EpicWeb onInteractionComplete / playCompletionAnimations.
+    // The drawer fires a complete event when an interaction finishes; here we
+    // (1) unlock the page's motion reward, (2) play the comets + motion video
+    // sequence, then (3) collect the gem after the animations finish.
+    function isInteractionComplete(event: DrawerCompleteEvent): boolean {
+      switch (event.type) {
+        case 'multiple-choice':
+          return !!(event.data as { hasAnswered?: boolean }).hasAnswered
+        case 'flashcard':
+          return !!(event.data as { isRevealed?: boolean }).isRevealed
+        case 'hotspot':
+          return true
+        default:
+          return !!(event.data as { isComplete?: boolean }).isComplete
+      }
+    }
+
+    const unsubComplete = drawerStore.drawerComplete.on((event) => {
+      if (!event || !isInteractionComplete(event)) return
+
+      const pageIndex = drawerStore.state.pageIndex
+      const starIndex = drawerStore.state.starIndex
+      const star = state.selectedStar
+
+      // Unlock this page's motion reward (page always added when eligible).
+      if (pageIndex != null && currentMotionUrl) {
+        motionUnlockedPages.add(pageIndex)
+      }
+
+      const shouldCollectGem =
+        !!star?.content?.treasure && pageIndex != null && starIndex != null
+
+      const collectGem = () => {
+        if (!shouldCollectGem) return
+        keyGemOverlayRef?.collect(`${pageIndex}_${starIndex}`, starIndex, star!.type)
+      }
+
+      const animDone = playCompletionAnimations(star)
+      if (animDone) {
+        animDone.then(() => collectGem())
+      } else {
+        collectGem()
       }
     })
 
@@ -3096,6 +3318,7 @@ declare const __EXTENSION_GLOBAL_NAME__: string
 
       unsubPage()
       unsubDrawer()
+      unsubComplete()
       unsubModal()
       unmountModal()
       drawerApp?.unmount()
@@ -3110,6 +3333,11 @@ declare const __EXTENSION_GLOBAL_NAME__: string
       if (shotResizeHandler) window.removeEventListener('resize', shotResizeHandler)
       if (shotRafId !== null) cancelAnimationFrame(shotRafId)
       shotContainer?.remove()
+      clearMotionContent()
+      if (motionResizeRafId !== null) cancelAnimationFrame(motionResizeRafId)
+      motionContainer?.remove()
+      motionContainer = null
+      motionUnlockedPages.clear()
       shotPreloadQueue.dispose()
       starApp.unmount()
       starContainer.remove()
