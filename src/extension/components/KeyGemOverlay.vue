@@ -38,7 +38,10 @@ export interface GemOverlayOpenGameEvent {
 
 const props = defineProps<{
   epicLabsBookData: EpicLabsBookData | null
-  currentPage: number
+  /** Reactive reader state — currentPage is read off state.page so it tracks
+   *  page turns (passing state.page as a value prop captures a snapshot that
+   *  never updates, hiding the portal on its target page). */
+  state: { page: number }
   bookId: string | number | undefined
   drawerDimensions: { drawerWidth: number; drawerHeight: number }
   treasureService: TreasureService
@@ -134,7 +137,7 @@ function clearAllTimers() {
 const portalVisible = computed(
   () =>
     !!props.epicLabsBookData?.treasureConfig &&
-    props.epicLabsBookData?.portalConfig?.pageNumber === props.currentPage,
+    props.epicLabsBookData?.portalConfig?.pageNumber === props.state.page,
 )
 
 const portalTooltipText = computed<string | null>(() => {
@@ -188,7 +191,7 @@ watch(
   },
 )
 watch(
-  () => props.currentPage,
+  () => props.state.page,
   () => {
     if (props.epicLabsBookData?.treasureConfig) resetPortalVisualState()
   },
@@ -274,7 +277,7 @@ function collect(interactionId: string, starIndex: number, starType?: string): v
   props.store?.updateCloseMetrics({ hasTreasure: true })
   props.analytics?.log(EPIC_LABS_KEY_COLLECT, {
     book_id: props.bookId,
-    page_index: props.currentPage,
+    page_index: props.state.page,
     star_index: starIndex,
     star_type: starType,
     collected_count: ts.getCollectedCount(),

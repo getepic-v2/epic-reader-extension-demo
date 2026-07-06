@@ -2875,7 +2875,7 @@ declare const __EXTENSION_GLOBAL_NAME__: string
 
       keyGemApp = createApp(KeyGemOverlay, {
         epicLabsBookData: data,
-        currentPage: state.page,
+        state,
         bookId: state.bookId,
         drawerDimensions: { drawerWidth: 480, drawerHeight: 640 },
         treasureService,
@@ -3054,6 +3054,14 @@ declare const __EXTENSION_GLOBAL_NAME__: string
       const pageIndex = drawerStore.state.pageIndex
       const starIndex = drawerStore.state.starIndex
       const star = state.selectedStar
+
+      // Mark the card completed for this session (ported from EpicWeb
+      // markCardCompleted). For drag-fill this is what autoInjectDragFill
+      // checks next time the page is entered — so an answered fill-in-the-blank
+      // reverts to the original page instead of re-showing empty drop zones.
+      if (pageIndex != null && starIndex != null) {
+        interactionMemory.markCardCompleted(pageIndex, starIndex)
+      }
 
       // Unlock this page's motion reward (page always added when eligible).
       if (pageIndex != null && currentMotionUrl) {
