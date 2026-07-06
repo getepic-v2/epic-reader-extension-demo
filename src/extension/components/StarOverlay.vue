@@ -17,8 +17,6 @@ const props = defineProps<{
   store?: DrawerStore
   memory?: InteractionMemory
   clickVideos?: ClickVideo[]
-  /** Called when a click-video button is tapped — opens the video modal. */
-  onVideoClick?: (url: string) => void
 }>()
 
 const STAR_LOTTIE_PATH = '/assets/epic-labs/animations/star/'
@@ -28,6 +26,9 @@ const CLICK_VIDEO_ICON = '/assets/epic-labs/mark/finger-point.svg'
 const starRefs = ref<Map<number, HTMLElement>>(new Map())
 const animations: AnimationItem[] = []
 const flipBookStyle = ref<Record<string, string>>({})
+const starContainerEl = ref<HTMLElement | null>(null)
+/** Injected click-video <video> elements, keyed by cv index. */
+const clickVideoEls = new Map<number, HTMLVideoElement>()
 
 // --- reading-area interaction layers (drag-fill / hotspot) ---
 const dragFillDropZones = ref<DragFillItem[]>([])
@@ -149,10 +150,44 @@ function onHotspotTap(isCorrect: boolean) {
   }
 }
 
+/**
+ * Inject the click-video's <video> over the book page (inline overlay), played
+ * muted + autoplay. On 'ended' the video is removed and the finger-point button
+ * reappears. Ported from EpicWeb injectClickVideoContent — EpicWeb injected a
+ * width:200% video across two page slots; the SDK reading-area slot host IS the
+ * full spread, so one width:100% video covers it.
+ */
 function onClickVideoClick(index: number) {
-  clickVideoPlaying.value.add(index)
-  const url = props.clickVideos?.[index]?.url
-  if (url) props.onVideoClick?.(url)
+  const cv = props.clickVideos?.[index]
+  if (!cv || clickVideoPlaying.value.has(index)) return
+  clickVideoPlaying.value = new Set(clickVideoPlaying.value).add(index)
+
+  const container = starContainerEl.value
+  if (!container) return
+
+  const video = document.createElement('video')
+  video.src = cv.url
+  video.muted = true
+  video.autoplay = true
+  video.loop = false
+  video.setAttribute('playsinline', '')
+  video.style.cssText =
+    'position:absolute;top:0;left:0;width:100%;height:100%;object-fit:fill;pointer-events:none;z-index:2;'
+  video.addEventListener('ended', () => {
+    video.remove()
+    clickVideoEls.delete(index)
+    const next = new Set(clickVideoPlaying.value)
+    next.delete(index)
+    clickVideoPlaying.value = next
+  })
+  container.appendChild(video)
+  clickVideoEls.set(index, video)
+}
+
+function clearClickVideoContent() {
+  for (const video of clickVideoEls.values()) video.remove()
+  clickVideoEls.clear()
+  clickVideoPlaying.value = new Set()
 }
 
 /**
@@ -208,7 +243,7 @@ watch(
     hotspotCorrectRegion.value = null
     hotspotWrongRegion.value = null
     hotspotTappedState.value = null
-    clickVideoPlaying.value.clear()
+    clearClickVideoContent()
     await nextTick()
     autoInjectDragFill()
     initLottieAnimations()
@@ -244,6 +279,7 @@ onBeforeUnmount(() => {
   flipBookResizeObserver = null
   animations.forEach((a) => a.destroy())
   animations.length = 0
+  clearClickVideoContent()
   unsubCommand?.()
   if (hotspotClearTimer) clearTimeout(hotspotClearTimer)
 })
@@ -251,7 +287,7 @@ onBeforeUnmount(() => {
 
 <template>
   <div class="star-overlay" :style="flipBookStyle">
-    <div class="star-container">
+    <div class="star-container" ref="starContainerEl">
       <!-- drag-fill temp_page: fill-in-the-blank question image overlaid on the
            whole book page while drag-fill is active -->
       <img

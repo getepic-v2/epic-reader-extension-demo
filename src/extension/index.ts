@@ -2718,13 +2718,6 @@ declare const __EXTENSION_GLOBAL_NAME__: string
       store: drawerStore,
       memory: interactionMemory,
       clickVideos: state.clickVideos,
-      // Wire click-video buttons to open the video modal.
-      onVideoClick: (url: string) => {
-        state.videoModalData = { videoUrl: url, skipLabel: 'Skip' }
-        videoModalType = 'click'
-        state.activeModal = 'video'
-        context.commands.execute('openModal', getVideoModalSize())
-      },
     })
     starApp.mount(starContainer)
 
