@@ -13,10 +13,10 @@ const props = defineProps<{
     page: number
     bookId: number | undefined
     stars: Star[]
+    clickVideos: ClickVideo[]
   }
   store?: DrawerStore
   memory?: InteractionMemory
-  clickVideos?: ClickVideo[]
 }>()
 
 const STAR_LOTTIE_PATH = '/assets/epic-labs/animations/star/'
@@ -158,7 +158,7 @@ function onHotspotTap(isCorrect: boolean) {
  * full spread, so one width:100% video covers it.
  */
 function onClickVideoClick(index: number) {
-  const cv = props.clickVideos?.[index]
+  const cv = props.state.clickVideos?.[index]
   if (!cv || clickVideoPlaying.value.has(index)) return
   clickVideoPlaying.value = new Set(clickVideoPlaying.value).add(index)
 
@@ -391,7 +391,7 @@ onBeforeUnmount(() => {
       </button>
 
       <!-- click-video buttons -->
-      <template v-for="(cv, i) in clickVideos || []" :key="'cv-' + i">
+      <template v-for="(cv, i) in state.clickVideos || []" :key="'cv-' + i">
         <button
           v-if="!clickVideoPlaying.has(i)"
           class="click-video-button"

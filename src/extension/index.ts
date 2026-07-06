@@ -2717,7 +2717,6 @@ declare const __EXTENSION_GLOBAL_NAME__: string
       state,
       store: drawerStore,
       memory: interactionMemory,
-      clickVideos: state.clickVideos,
     })
     starApp.mount(starContainer)
 

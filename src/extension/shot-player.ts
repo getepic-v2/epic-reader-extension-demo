@@ -7,6 +7,20 @@ import { appendCacheBuster } from './utils/url'
 const MARK_LAYER_DELAY_MS = 1000
 
 /**
+ * Web Audio fade for loop>=1 (audible) shots. GainNode.gain is ramped via
+ * setTargetAtTime (exponential) on the browser's audio render thread, so JS
+ * main-thread jank never causes a stepped/zippered fade.
+ *
+ * τ is the time-constant to reach ~63% of the target; 1s ≈ 3τ reaches ~95%,
+ * so a 0.3s τ gives a perceived "~1s fade". Exponential (not linear) because
+ * human loudness perception is logarithmic — linear ramps sound sudden at the
+ * start.
+ */
+const FADE_TAU_S = 0.3
+/** Start the fade-out when this much playback time remains. */
+const FADE_TAIL_THRESHOLD_S = 1.0
+
+/**
  * Pure-JS page-level video shot player.
  *
  * Replaces the Vue ShotOverlay component with framework-agnostic code, because
@@ -65,6 +79,15 @@ interface ShotLayer {
   video: HTMLVideoElement
   subtitle: HTMLImageElement | null
   counted: boolean
+  // --- Web Audio (only populated for loop>=1 shots; loop===0 layers leave these null) ---
+  sourceNode?: MediaElementAudioSourceNode | null
+  gainNode?: GainNode | null
+  /** Guards createMediaElementSource — a second call on the same <video> throws. */
+  sourceCreated?: boolean
+  /** One tail-fade per play; reset by disarmTailFade / replay. */
+  tailFadeStarted?: boolean
+  /** Stable ref so removeEventListener works across arm/disarm. */
+  timeupdateHandler?: ((e: Event) => void) | null
 }
 
 export class ShotPlayer {
@@ -95,6 +118,9 @@ export class ShotPlayer {
   /** Pending MarkLayer reveal timer (1s delay, mirroring subtitle fade-in). */
   private markLayerTimer: ReturnType<typeof setTimeout> | null = null
   private destroyed = false
+
+  /** Lazily created on the first audible (loop>=1) shot play; closed in destroy(). */
+  private audioCtx: AudioContext | null = null
 
   // --- Two-phase page turn state (only when page has both loop=0 and loop>=1) ---
   /** True when this page's shots contain both a loop===0 and a loop>=1 shot. */
@@ -170,6 +196,11 @@ export class ShotPlayer {
 
       const video = document.createElement('video')
       video.className = 'shot-video'
+      // crossOrigin MUST be set before src is assigned (in preloadAll) so the
+      // cross-origin video isn't tainted — a tainted <video> routed through a
+      // MediaElementAudioSourceNode outputs silence (no error, just zeros).
+      // The CDN returns access-control-allow-origin: *.
+      video.crossOrigin = 'anonymous'
       video.setAttribute('playsinline', '')
       video.preload = 'auto'
       if (readyHandler) video.addEventListener('canplaythrough', readyHandler)
@@ -273,6 +304,91 @@ export class ShotPlayer {
     this.onMarkLayer?.(visible)
   }
 
+  // ── Web Audio fade (loop>=1 shots only) ──────────────────────────────────
+
+  /**
+   * Build the MediaElementSource → GainNode → destination graph for a layer's
+   * video, once. Idempotent via sourceCreated. loop===0 shots get no graph
+   * (they stay muted). On any failure, sourceCreated is still set (never retry)
+   * but gainNode may be null — callers null-check and fall back to raw play.
+   */
+  private ensureAudioGraph(layer: ShotLayer, shot: Shot): void {
+    if (shot.loop < 1) return
+    if (layer.sourceCreated) return
+    layer.sourceCreated = true
+    try {
+      if (!this.audioCtx) {
+        const Ctor: typeof AudioContext =
+          window.AudioContext || (window as any).webkitAudioContext
+        if (!Ctor) return
+        this.audioCtx = new Ctor()
+      }
+      const src = this.audioCtx.createMediaElementSource(layer.video)
+      const gain = this.audioCtx.createGain()
+      gain.gain.value = 0 // start silent so play→fadeIn can't leak the audio head
+      src.connect(gain).connect(this.audioCtx.destination)
+      layer.sourceNode = src
+      layer.gainNode = gain
+    } catch {
+      // createMediaElementSource threw (already bound, or ctx issue) — leave
+      // gainNode null; the shot still plays, just without fades.
+      layer.gainNode = null
+    }
+  }
+
+  private fadeIn(layer: ShotLayer): void {
+    const ctx = this.audioCtx
+    const gain = layer.gainNode
+    if (!ctx || !gain) return
+    ctx.resume().catch(() => {})
+    const t = ctx.currentTime
+    // Cancel any in-flight ramp (e.g. a half-finished fadeOut) and anchor first
+    // so the new ramp starts from the live value — interruption-safe.
+    gain.gain.cancelScheduledValues(t)
+    gain.gain.setValueAtTime(0, t)
+    gain.gain.setTargetAtTime(1, t, FADE_TAU_S)
+  }
+
+  private fadeOut(layer: ShotLayer): void {
+    const ctx = this.audioCtx
+    const gain = layer.gainNode
+    if (!ctx || !gain) return
+    const t = ctx.currentTime
+    // Anchor at the live value so a fadeOut mid-fadeIn still ramps smoothly.
+    gain.gain.cancelScheduledValues(t)
+    gain.gain.setValueAtTime(gain.gain.value, t)
+    gain.gain.setTargetAtTime(0, t, FADE_TAU_S)
+  }
+
+  /** Arm the tail-fade: fade out over the last FADE_TAIL_THRESHOLD_S of playback. */
+  private armTailFade(layer: ShotLayer, shot: Shot): void {
+    if (shot.loop < 1) return
+    this.disarmTailFade(layer)
+    const handler = () => this.onTimeupdate(layer)
+    layer.timeupdateHandler = handler
+    layer.video.addEventListener('timeupdate', handler)
+  }
+
+  private disarmTailFade(layer: ShotLayer): void {
+    const h = layer.timeupdateHandler
+    if (h) {
+      layer.video.removeEventListener('timeupdate', h)
+      layer.timeupdateHandler = null
+    }
+    layer.tailFadeStarted = false
+  }
+
+  private onTimeupdate(layer: ShotLayer): void {
+    if (layer.tailFadeStarted) return
+    const v = layer.video
+    const d = v.duration
+    if (!Number.isFinite(d) || d <= 0) return
+    if (d - v.currentTime <= FADE_TAIL_THRESHOLD_S) {
+      layer.tailFadeStarted = true
+      this.fadeOut(layer)
+    }
+  }
+
   /**
    * (Re)apply loop/mute then start playback from the beginning. src/load() can
    * reset a video's muted state in some browsers, so we re-apply right before
@@ -281,16 +397,25 @@ export class ShotPlayer {
   private startPlay(video: HTMLVideoElement, shot: Shot): void {
     this.applyLoopMute(video, shot)
     video.currentTime = 0
+    const audible = shot.loop >= 1
     const p = video.play()
     if (p) {
-      p.catch(() => {
+      p.then(() => {
+        if (this.destroyed) return
+        if (!audible) return
+        // play() raced against a layer switch — bail so we don't fade a stale layer.
+        const layer = this.layers[this.currentIndex]
+        if (!layer || layer.video !== video) return
+        this.ensureAudioGraph(layer, shot)
+        if (!layer.gainNode) return // graph failed → raw play, no fade
+        this.fadeIn(layer)
+        this.armTailFade(layer, shot)
+      }).catch(() => {
         // Autoplay policy: unmuted autoplay may be blocked before any user
-        // gesture. Degrade to muted so the sequence still progresses. Display
-        // takes priority over sound — a muted-but-visible video is better
-        // than a blank white frame.
+        // gesture. Degrade to muted so the sequence still progresses — and skip
+        // the fade graph (meaningless when muted). Display takes priority over
+        // sound; a muted-but-visible video is better than a blank white frame.
         video.muted = true
-        // Retry; if this also fails there's nothing more we can do, but at
-        // least the video element stays ready to play on the next gesture.
         video.play().catch(() => {})
       })
     }
@@ -387,12 +512,29 @@ export class ShotPlayer {
   private advanceTo(nextIndex: number): void {
     if (this.currentIndex === nextIndex) return
 
-    // Pause + silence the old shot.
-    if (this.currentIndex >= 0) {
-      const oldV = this.layers[this.currentIndex]?.video
-      if (oldV) {
-        oldV.pause()
-        oldV.muted = true
+    // --- OLD LAYER: cross-fade out (or hard-cut for loop===0 / no graph) ---
+    const oldLayer = this.currentIndex >= 0 ? this.layers[this.currentIndex] : null
+    const oldShot = this.currentIndex >= 0 ? this.shots[this.currentIndex] : null
+    if (oldLayer && oldShot) {
+      this.disarmTailFade(oldLayer)
+      if (oldShot.loop >= 1 && oldLayer.gainNode) {
+        // Cross-fade: ramp old gain →0 over ~1s while the new layer fades in.
+        this.fadeOut(oldLayer)
+        // Pause the old video once the fade is ~done (≈3τ = 95%). setTimeout is
+        // approximate but the gain ramp runs on the audio thread regardless, so
+        // worst case it plays silently a few extra ms before pausing.
+        const ms = FADE_TAU_S * 3 * 1000
+        window.setTimeout(() => {
+          if (this.destroyed) return
+          // Don't pause if the user has switched back to this layer.
+          if (this.currentIndex !== nextIndex) return
+          oldLayer.video.pause()
+          oldLayer.video.muted = true
+        }, ms)
+      } else {
+        // loop===0 (muted) or graph missing — hard cut as before.
+        oldLayer.video.pause()
+        oldLayer.video.muted = true
       }
     }
 
@@ -476,6 +618,31 @@ export class ShotPlayer {
     // next page — if it has no shots — shows its stars without a stale
     // hidden class lingering on .star-overlay.
     this.setMarkLayer(true)
+    // Tear down the Web Audio graph: remove timeupdate listeners + disconnect
+    // nodes while the AudioContext is still open.
+    for (const layer of this.layers) {
+      if (!layer) continue
+      this.disarmTailFade(layer)
+      try {
+        layer.sourceNode?.disconnect()
+      } catch {
+        // already disconnected
+      }
+      try {
+        layer.gainNode?.disconnect()
+      } catch {
+        // already disconnected
+      }
+      layer.sourceNode = null
+      layer.gainNode = null
+      layer.sourceCreated = false
+    }
+    if (this.audioCtx) {
+      // Fire-and-forget: close() just releases the hardware. After
+      // this.audioCtx = null, every fade method null-checks and early-returns.
+      this.audioCtx.close().catch(() => {})
+      this.audioCtx = null
+    }
     // Remove listeners using the stable handler references.
     for (let i = 0; i < this.layers.length; i++) {
       const layer = this.layers[i]
