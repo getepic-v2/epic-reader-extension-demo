@@ -6,6 +6,7 @@ import type {
   StarContent,
   MultipleChoiceOption,
   GameConfig,
+  GameUrl,
   PortalConfig,
   QuizSingleOptionSet,
   QuizCompareSubject,
@@ -102,12 +103,47 @@ function parseVideoUrl(
   return url ? { url } : undefined
 }
 
+/**
+ * Parse all <url> children of a <summary-game> element, capturing each node's
+ * `type` attribute (e.g. "school"/"family"). Account-type selection between
+ * them happens later (index.ts getLabsData), once context.user.isParent() is
+ * available — the parser stays context-free.
+ */
+function parseGameUrls(summaryGameEl: Element): GameUrl[] {
+  const urls: GameUrl[] = []
+  summaryGameEl.querySelectorAll('url').forEach((u) => {
+    const url = u.textContent?.trim()
+    if (!url) return
+    urls.push({ type: u.getAttribute('type') ?? undefined, url })
+  })
+  return urls
+}
+
+/** Pick a URL for the given account type, falling back to the first available. */
+export function pickGameUrl(
+  urls: GameUrl[],
+  accountType: 'family' | 'school' | null,
+): string {
+  const first = urls[0]
+  if (!first) return ''
+  if (accountType) {
+    const match = urls.find((u) => u.type === accountType)
+    if (match) return match.url
+  }
+  return first.url
+}
+
+/** First URL in the list (caller guarantees non-empty). */
+function firstGameUrl(urls: GameUrl[]): string {
+  return urls[0]?.url ?? ''
+}
+
 function parsePortalConfig(readingModule: Element): PortalConfig | undefined {
   const el = readingModule.querySelector('summary-game')
   if (!el) return undefined
 
-  const gameUrl = el.querySelector('url')?.textContent?.trim()
-  if (!gameUrl) return undefined
+  const gameUrls = parseGameUrls(el)
+  if (gameUrls.length === 0) return undefined
 
   const xmlPageNumber = parseInt(
     el.querySelector('page_number')?.textContent || '0',
@@ -119,7 +155,13 @@ function parsePortalConfig(readingModule: Element): PortalConfig | undefined {
   const x = parseFloat(coordsEl?.querySelector('x')?.textContent || '0')
   const y = parseFloat(coordsEl?.querySelector('y')?.textContent || '0')
 
-  return { pageNumber, xPercent: x, yPercent: y, gameUrl }
+  return {
+    pageNumber,
+    xPercent: x,
+    yPercent: y,
+    gameUrl: firstGameUrl(gameUrls),
+    gameUrls,
+  }
 }
 
 function parseGameConfig(readingModule: Element): GameConfig | undefined {
@@ -128,14 +170,14 @@ function parseGameConfig(readingModule: Element): GameConfig | undefined {
     return undefined
   }
 
-  const gameUrl =
-    summaryGameEl.querySelector('url')?.textContent?.trim() || ''
-  if (!gameUrl) {
+  const gameUrls = parseGameUrls(summaryGameEl)
+  if (gameUrls.length === 0) {
     return undefined
   }
 
   return {
-    gameUrl,
+    gameUrl: firstGameUrl(gameUrls),
+    gameUrls,
   }
 }
 

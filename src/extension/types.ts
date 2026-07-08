@@ -48,16 +48,28 @@ export interface TreasureConfig {
 }
 
 export interface GameConfig {
+  /** Final URL after account-type selection (family/school) has been applied. */
   gameUrl: string
   width?: string
   height?: string
+  /** All <url> nodes from <summary-game> before account-type selection.
+   *  Optional for backward compat with data not built by the XML parser. */
+  gameUrls?: GameUrl[]
 }
 
 export interface PortalConfig {
   pageNumber: number
   xPercent: number
   yPercent: number
+  /** Final URL after account-type selection (family/school) has been applied. */
   gameUrl: string
+  gameUrls?: GameUrl[]
+}
+
+export interface GameUrl {
+  /** 'family' | 'school' from <url type="...">; undefined when no type attribute. */
+  type?: string
+  url: string
 }
 
 // quiz-single: one question, multiple option sets
