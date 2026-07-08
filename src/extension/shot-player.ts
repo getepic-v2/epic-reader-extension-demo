@@ -593,6 +593,65 @@ export class ShotPlayer {
     return 'pass'
   }
 
+  /** True while the drawer is open and we've paused the active shot for it. */
+  private drawerPaused = false
+
+  /**
+   * Pause the active shot when the drawer opens — fade out first (so audio
+   * doesn't cut hard), then pause the video **without resetting currentTime**
+   * so resume can continue from the breakpoint. Idempotent: re-entry is a
+   * no-op. Does nothing if no shot is currently active/playing.
+   */
+  pauseForDrawer(): void {
+    if (this.destroyed || this.drawerPaused) return
+    const layer = this.layers[this.currentIndex]
+    if (!layer) return
+    // Disarm the tail-fade so its timeupdate handler doesn't fight us by
+    // re-firing fadeOut after we've already paused.
+    this.disarmTailFade(layer)
+    if (layer.gainNode) {
+      this.fadeOut(layer)
+    }
+    layer.video.pause()
+    this.drawerPaused = true
+  }
+
+  /**
+   * Resume the active shot when the drawer closes — play from the preserved
+   * currentTime with a fade-in (no hard cut, no currentTime change). Idempotent:
+   * a no-op if the drawer wasn't holding us paused. Skips if the page has since
+   * turned or the player was destroyed.
+   */
+  resumeFromDrawer(): void {
+    if (this.destroyed || !this.drawerPaused) return
+    const layer = this.layers[this.currentIndex]
+    if (!layer) {
+      this.drawerPaused = false
+      return
+    }
+    this.drawerPaused = false
+    const shot = this.shots[this.currentIndex]
+    // Re-arm the tail-fade if there's still tail left to fade. shot may be
+    // undefined if currentIndex is stale (page turned) — guard.
+    const p = layer.video.play()
+    if (p) {
+      p.then(() => {
+        if (this.destroyed) return
+        // Page turned while we were paused → don't touch the stale layer.
+        if (layer !== this.layers[this.currentIndex]) return
+        if (shot && shot.loop >= 1 && layer.gainNode) {
+          this.fadeIn(layer)
+          this.armTailFade(layer, shot)
+        }
+      }).catch(() => {
+        // Autoplay policy after a long pause may block unmuted resume —
+        // degrade to muted so visuals at least continue.
+        layer.video.muted = true
+        layer.video.play().catch(() => {})
+      })
+    }
+  }
+
   /**
    * Start (or restart) the page's audible shot as a two-phase turn trigger.
    * Marks nTriggeredByTurn so that when ALL its loop iterations complete, the
