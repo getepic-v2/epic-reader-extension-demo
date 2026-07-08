@@ -8,6 +8,7 @@ import GuideModal from './components/GuideModal.vue'
 import BookRatingModal from './components/BookRatingModal.vue'
 import { injectStyles } from './utils/styles'
 import { appendCacheBuster } from './utils/url'
+import { sdkLog, brief } from './utils/logger'
 import type {
   ExtensionContext,
   Star,
@@ -27,11 +28,12 @@ import { createDrawerStore } from './composables/useDrawerStore'
 import { createAnalytics } from './composables/useAnalytics'
 import { createTreasureService } from './composables/useTreasureService'
 import type { TreasurePersistence } from './composables/useTreasureService'
-import { createBookInteractiveInfoStore } from './composables/useBookInteractiveInfo'
-import type { EpicLabsInteractiveInfo } from './composables/useBookInteractiveInfo'
 import { createInteractionMemory } from './composables/useInteractionMemory'
+import type { EpicLabsInteractiveInfo } from './composables/useBookInteractiveInfo'
 import { createMotionActiveOverlay } from './composables/useMotionActiveOverlay'
-import { loadJSON, loadFlag, saveFlag, STORAGE_KEYS } from './utils/storage'
+import { loadFlag, saveFlag, STORAGE_KEYS } from './utils/storage'
+import { augmentContext, resolveAccountType, createRtmController } from './types-sdk-augment'
+import { pickGameUrl } from './utils/parse-labs-xml'
 import * as V from './styles/variables'
 import {
   EPIC_LABS_STAR_CLICK,
@@ -57,6 +59,29 @@ function getLabsData(context: ExtensionContext): EpicReaderBookData | null {
     parsedLabsData = parseLabsXml(raw)
   } catch (e) {
     console.warn('Failed to parse labsData XML:', e)
+    return null
+  }
+  // <summary-game> may carry separate <url type="school">/<url type="family">
+  // entries. Select the one matching the account type (isParent → family),
+  // falling back to the existing gameUrl. Done here (not in the parser) so the
+  // parser stays context-free and the choice is made once per book load.
+  // Backward compat: if gameUrls is absent (data not from the XML parser, or
+  // an older <summary-game> with a single <url>), gameUrl is left untouched.
+  const aug = augmentContext(context)
+  const accountType = resolveAccountType(aug)
+  if (accountType && parsedLabsData) {
+    if (parsedLabsData.gameConfig?.gameUrls?.length) {
+      parsedLabsData.gameConfig.gameUrl = pickGameUrl(
+        parsedLabsData.gameConfig.gameUrls,
+        accountType,
+      )
+    }
+    if (parsedLabsData.portalConfig?.gameUrls?.length) {
+      parsedLabsData.portalConfig.gameUrl = pickGameUrl(
+        parsedLabsData.portalConfig.gameUrls,
+        accountType,
+      )
+    }
   }
   return parsedLabsData
 }
@@ -2414,26 +2439,90 @@ const MODAL_CSS = `
 declare const __EXTENSION_GLOBAL_NAME__: string
 ;(window as any)[__EXTENSION_GLOBAL_NAME__] = {
   activate(context: ExtensionContext) {
+    // SDK capability augment: globalState + getBookCoverUrl are documented but
+    // not yet in the published typings (see types-sdk-augment.ts). Cast once
+    // at the boundary; internal helpers use `augContext` for those calls.
+    const augContext = augmentContext(context)
+    // Raw context dump for debugging — let the developer inspect the actual
+    // object the host passed in (typings may lag behind runtime).
+    // eslint-disable-next-line no-console
+    console.log('[EpicLabsExt] context', context)
+    // appKey for globalState isolation (doc §4.8: extensionConfig.appKey, assigned
+    // at onboarding). The host logs "globalState.save skipped: missing appKey"
+    // when the test book's extensionConfig doesn't carry one. Supply the test
+    // value ('think_studio', same as EpicWeb's APP_KEY) from env so globalState
+    // works on test books; prod value is injected via CI/build env.
+    const APP_KEY = import.meta.env.VITE_EPIC_APP_KEY ?? ''
+    if (APP_KEY) sdkLog.log('appKey', 'from env:', APP_KEY)
+    // RTM pause/resume on drawer open/close. The host pause/resume command is
+    // not yet exposed by the SDK; createRtmController issues it optimistically
+    // (no-op until the SDK ships the command). See types-sdk-augment.ts.
+    const rtmController = createRtmController(augContext)
     // --- Shared services ---
     const drawerStore = createDrawerStore()
     const analytics = createAnalytics(context)
-    const interactiveInfoStore = createBookInteractiveInfoStore()
     const interactionMemory = createInteractionMemory()
-    // Treasure persistence routes through the book-interactive-info store so
-    // collected ids live under `info.gems.collectedIds` — the same shape the
-    // backend API expects, ready to swap in later. Load is synchronous (restore
-    // happens on mount); save is fire-and-forget.
+    // Treasure persistence backed by context.globalState (per-user+book,
+    // cross-session). Mirrors EpicWeb's EpicLabsUserDataService +
+    // saveGemsToServer/loadGemsFromServer: an in-memory `serverInfo` snapshot
+    // is captured on load and merged on save (so sibling fields survive),
+    // and the service's collectedIds is the single source of truth — save
+    // overwrites gems.collectedIds rather than unioning (avoids reviving
+    // ids the user cleared on another device).
+    //
+    // The service surface is synchronous, but globalState is async — so
+    // loadCollectedIds returns the cached snapshot immediately (UI mounts
+    // with empty collection), and the load promise is awaited separately to
+    // restore gems once resolved. save is fire-and-forget.
+    //
+    // SDK status: context.globalState is documented (doc §4.8) but NOT yet
+    // exposed by the installed typings/runtime — see types-sdk-augment.ts.
+    // Until the SDK ships it, `augContext.globalState` is undefined and every
+    // call degrades to a logged no-op (gems do NOT persist across sessions).
+    // This is an SDK gap, not an extension bug; the logic below is correct
+    // and will take effect the moment globalState becomes available.
+    const treasureLoadedPromise: Promise<string[]> = (async () => {
+      if (!augContext.globalState) {
+        sdkLog.warn('globalState.load', 'unavailable — SDK has not exposed globalState yet (doc §4.8); gems will not persist cross-session until it does')
+        return []
+      }
+      try {
+        const saved = await augContext.globalState.load(APP_KEY || undefined)
+        sdkLog.log('globalState.load', saved ? `${Object.keys(saved).join(',')} keys` : 'null')
+        if (!saved) return []
+        const info = saved as EpicLabsInteractiveInfo
+        return info.gems?.collectedIds ?? []
+      } catch (e) {
+        sdkLog.warn('globalState.load failed', e)
+        return []
+      }
+    })()
+    // In-memory snapshot of the last loaded/saved state (EpicWeb `serverInfo`).
+    // Merged into every save so non-gems fields survive.
+    let serverInfo: EpicLabsInteractiveInfo = {}
+    void treasureLoadedPromise.then((ids) => {
+      if (ids.length) serverInfo = { ...serverInfo, gems: { collectedIds: ids } }
+    })
     const treasurePersistence: TreasurePersistence = {
-      loadCollectedIds: (bookId) => {
-        const info = loadJSON<EpicLabsInteractiveInfo | null>(
-          STORAGE_KEYS.INTERACTION_INFO,
-          null,
-          bookId,
-        )
-        return info?.gems?.collectedIds ?? []
-      },
-      saveCollectedIds: (bookId, ids) => {
-        void interactiveInfoStore.setCollectedIds(bookId, ids)
+      loadCollectedIds: () => serverInfo.gems?.collectedIds ?? [],
+      saveCollectedIds: (_bookId, ids) => {
+        if (!augContext.globalState) return
+        // Single source of truth: the service's ids overwrite gems.collectedIds.
+        // Merge with serverInfo to preserve sibling fields (EpicWeb pattern).
+        const info: EpicLabsInteractiveInfo = {
+          ...serverInfo,
+          gems: { collectedIds: ids },
+        }
+        void (async () => {
+          try {
+            await augContext.globalState!.save(info, APP_KEY || undefined)
+            sdkLog.log('globalState.save', `gems.collectedIds=${ids.length} ids`)
+            serverInfo = info
+          } catch (e) {
+            sdkLog.warn('globalState.save failed', e)
+            // persistence failure must not break collection flow
+          }
+        })()
       },
     }
     const treasureService = createTreasureService(treasurePersistence)
@@ -2861,9 +2950,18 @@ declare const __EXTENSION_GLOBAL_NAME__: string
       // register persistence. Done here — not in activate's main body — so the
       // deferred mount path (data arriving late via the poller) also restores.
       if (state.bookId !== undefined) {
-        const collected = treasureService.loadPersisted(state.bookId)
-        if (collected.length) pendingRestoreIds = collected
+        // globalState.load is async; the service already has whatever was
+        // cached synchronously (empty on first mount). Kick off the async
+        // load+restore so previously-collected gems reappear once resolved.
         treasureService.persist(state.bookId)
+        void treasureLoadedPromise.then((collected) => {
+          if (!collected.length) return
+          if (keyGemOverlayRef) {
+            keyGemOverlayRef.restoreGems(collected)
+          } else {
+            pendingRestoreIds = collected
+          }
+        })
       }
       keyGemContainer = document.createElement('div')
       starContainer.appendChild(keyGemContainer)
@@ -2913,6 +3011,7 @@ declare const __EXTENSION_GLOBAL_NAME__: string
 
     // --- Events ---
     const unsubPage = context.events.on('pageChange', (payload: any) => {
+      sdkLog.log('event:pageChange', brief(payload))
       // Fire PAGE_CLOSE for the page we're leaving, using its accumulated stats.
       const prevPage = state.page
       const prevStars = state.stars
@@ -2988,7 +3087,14 @@ declare const __EXTENSION_GLOBAL_NAME__: string
     let drawerContainer: HTMLElement | null = null
 
     const unsubDrawer = context.events.on('drawerStateChange', (payload: any) => {
+      sdkLog.log('event:drawerStateChange', brief(payload))
       if (payload?.mounted) {
+        // Drawer opened — pause host RTM so the interaction's audio isn't
+        // drowned out. Resumed below when the drawer closes.
+        rtmController.pause()
+        // Pause the active shot video too (fade out, keep currentTime) so the
+        // interaction's own audio/video isn't competing. Resumed on close.
+        shotPlayer?.pauseForDrawer()
         try {
           const drawerRoot = context.slots.get('drawer')
           injectStyles(drawerRoot, FONT_FACE + EPIC_BUTTON_CSS + DRAWER_CSS, 'epic-drawer-styles')
@@ -3008,6 +3114,10 @@ declare const __EXTENSION_GLOBAL_NAME__: string
           // drawer slot not ready
         }
       } else {
+        // Drawer closing — resume the RTM playback we paused on open.
+        rtmController.resume()
+        // Resume the shot video from its breakpoint (fade in, no currentTime change).
+        shotPlayer?.resumeFromDrawer()
         // Drawer closing — fire CLOSE_STAR with the accumulated metrics.
         const metrics = drawerStore.getCloseMetrics()
         if (metrics) {
@@ -3122,8 +3232,20 @@ declare const __EXTENSION_GLOBAL_NAME__: string
             },
           })
         } else if (state.activeModal === 'bookRating') {
+          // Cover URL comes from the host via the SDK data API (absolute CDN
+          // path). Falls back to any caller-supplied coverUrl in bookRatingData,
+          // and finally to '' — getBookCoverUrl returns '' when no book is open.
+          const coverUrl =
+            state.bookRatingData?.coverUrl ??
+            augContext.data.getBookCoverUrl?.() ??
+            ''
+          sdkLog.log('data.getBookCoverUrl', coverUrl || '(empty)')
           modalApp = createApp(BookRatingModal, {
-            data: state.bookRatingData ?? undefined,
+            data: {
+              ...(state.bookRatingData ?? {}),
+              bookId: state.bookRatingData?.bookId ?? state.bookId,
+              coverUrl,
+            },
             analytics,
             onClosed: () => {
               if (state.bookId !== undefined) {
@@ -3190,6 +3312,7 @@ declare const __EXTENSION_GLOBAL_NAME__: string
     }
 
     const unsubModal = context.events.on('modalStateChange', (payload: any) => {
+      sdkLog.log('event:modalStateChange', brief(payload))
       if (payload?.mounted) {
         mountModal()
       } else {
@@ -3271,8 +3394,12 @@ declare const __EXTENSION_GLOBAL_NAME__: string
       // previousPage always passes through.
       if (command === 'nextPage' && shotPlayer) {
         const action = shotPlayer.consumePageTurn('next')
-        if (action === 'swallow') return
+        if (action === 'swallow') {
+          sdkLog.log('commands.execute', command, '(swallowed by shot player)')
+          return
+        }
       }
+      sdkLog.log('commands.execute', command, brief(payload))
       originalExecute(command, payload)
     }
 
