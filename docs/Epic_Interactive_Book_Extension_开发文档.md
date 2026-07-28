@@ -291,6 +291,12 @@ context.progress.start({ resumed: !!saved })
 context.progress.complete({ finalScore: 1200, ending: 'survived' })
 ```
 
+**约定字段 `total_pages`（强烈建议提供）**：在 `start()` 的 `data` 里声明这本书的总页数（你划分的"页"总数，见下方 `pageChange` 小节）。宿主只能从你这里得知总页数 —— 它是完读进度、页覆盖率等指标的分母，不提供则这些指标无法计算。要求正数，宿主会向下取整；非法值会被忽略并打印 warning。
+
+```javascript
+context.progress.start({ total_pages: 24 })
+```
+
 #### pageChange() 的用法
 
 互动书没有宿主侧的翻页概念，所以"用户在哪里、停留了多久、按什么顺序走"这些节点数据完全依赖扩展主动上报。**每次用户进入一个新的"页"时调用** —— "页"的划分由你决定（关卡、场景、章节画面都可以），只要求：
