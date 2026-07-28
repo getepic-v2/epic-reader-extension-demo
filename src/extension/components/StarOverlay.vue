@@ -19,6 +19,7 @@ const GAME_LOTTIE_PATH = '/assets/epic-labs/animations/game/'
 const starRefs = ref<Map<number, HTMLElement>>(new Map())
 const animations: AnimationItem[] = []
 const flipBookStyle = ref<Record<string, string>>({})
+let unsubFlipBookRect: (() => void) | null = null
 
 function setStarRef(el: any, index: number) {
   if (el) {
@@ -83,9 +84,14 @@ watch(
 onMounted(() => {
   updateFlipBookPosition()
   nextTick(() => initLottieAnimations())
+  // Reposition the star layer when the book rect changes on window resize.
+  unsubFlipBookRect = props.context.events.on('flipBookRectChange', () => {
+    updateFlipBookPosition()
+  })
 })
 
 onBeforeUnmount(() => {
+  unsubFlipBookRect?.()
   animations.forEach((a) => a.destroy())
   animations.length = 0
 })

@@ -371,6 +371,10 @@ const MODAL_CSS = `
   display: flex;
   flex-direction: column;
   font-family: Arial, sans-serif;
+  background: #ffffff;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
 }
 .game-content-header {
   padding: 16px;
