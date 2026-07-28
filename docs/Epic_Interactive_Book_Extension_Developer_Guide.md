@@ -292,6 +292,12 @@ context.progress.start({ resumed: !!saved })
 context.progress.complete({ finalScore: 1200, ending: 'survived' })
 ```
 
+**Well-known key `total_pages` (strongly recommended)**: declare the book's total page count (the total number of "pages" as you segment them — see the `pageChange` section below) in `start()`'s `data`. The host can only learn the total from you — it is the denominator for completion progress and page-coverage metrics, which cannot be computed without it. Must be a positive number; the host floors fractions and ignores invalid values with a console warning.
+
+```javascript
+context.progress.start({ total_pages: 24 })
+```
+
 #### Using pageChange()
 
 Interactive books have no host-side page-turn concept, so node-level data — where the user is, how long they stayed, what path they took — depends entirely on the extension reporting it. **Call it every time the user enters a new "page."** How you segment pages is up to you (levels, scenes, chapter screens all work), as long as:
