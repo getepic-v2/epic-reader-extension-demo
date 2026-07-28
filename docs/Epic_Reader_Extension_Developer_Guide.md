@@ -209,6 +209,7 @@ root.appendChild(style);
 |--------|-------------|-------------|
 | `getBookId()` | `number \| undefined` | Current book ID |
 | `getBookData()` | `object` | Full book object (see field details below) |
+| `getBookCoverUrl()` | `string` | Current book cover image CDN URL (empty string if no book; see note below) |
 | `getCurrentPage()` | `number` | Current page number (starts from 0) |
 | `getLabsData()` | `string \| null` | Interactive data bound to the book (raw format, parsed by the extension) |
 | `getFlipBookRect()` | `object \| null` | Exact position and dimensions of the book page on screen |
@@ -234,6 +235,17 @@ root.appendChild(style);
 | `bookDescription` | `string` | Book description |
 
 > These are commonly used fields. The actual object contains more properties. Use `console.log(context.data.getBookData())` to inspect the full structure.
+
+**getBookCoverUrl() note:**
+
+Returns the CDN URL of the current book's cover image (absolute, unsigned), matching the cover shown on the host bookshelf and book cover page. Can be used directly in `<img src>` or for cover preloading. Returns an empty string `''` when no book is active.
+
+```javascript
+var coverUrl = context.data.getBookCoverUrl();
+// e.g. https://cdn-gcp-media.getepic.com/drm/3/1234563/cover.jpg
+```
+
+> The CDN domain differs in development (e.g. `content.getepic.dev`); do not hardcode the domain in the extension — always obtain it via this method.
 
 **getFlipBookRect() return value:**
 
