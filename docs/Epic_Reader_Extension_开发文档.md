@@ -1,7 +1,7 @@
 # Epic Reader Extension 第三方开发文档
 
-> 版本：1.1.0  
-> 更新日期：2026-06-12
+> 版本：1.2.0  
+> 更新日期：2026-07-16
 
 > **首次合作？** 请先阅读[合作入驻指南](./合作入驻指南.md)，完成仓库、API 凭证、测试账号等申请。
 
@@ -213,11 +213,13 @@ root.appendChild(style);
 | `getCurrentPage()` | `number` | 当前页码（从 0 开始） |
 | `getLabsData()` | `string \| null` | 书籍绑定的互动数据（原始格式，由第三方自行解析） |
 | `getFlipBookRect()` | `object \| null` | 书页在屏幕上的精确位置和尺寸 |
+| `getDrawerRect()` | `{ width, height } \| null` | 抽屉内容区尺寸（自然尺寸，与动画状态无关）；抽屉未打开时返回 `null` |
 | `getPageAudioUrl(pageIndex)` | `string` | 指定页的朗读音频 CDN 地址（无音频时返回空字符串） |
 | `getWordTimingData(pageIndex)` | `Promise<object \| null>` | 指定页的单词时间轴数据（异步） |
 | `getRtmVolume()` | `number` | 当前音量值（0–100） |
 | `getRtmSpeed()` | `number` | 当前播放速度（0.5–2.0） |
 | `getRtmHighlight()` | `boolean` | 当前是否启用单词高亮 |
+| `getRtmPlaying()` | `boolean` | Read to Me 当前是否在播放 |
 
 **getBookData() 常用字段：**
 
@@ -248,6 +250,17 @@ root.appendChild(style);
 ```
 
 > 用于精确定位互动元素在书页上的位置。
+
+**getDrawerRect() 说明：**
+
+返回抽屉内容区的尺寸（自然尺寸，与动画/缩放状态无关）。抽屉未打开时返回 `null`。
+
+```javascript
+var rect = context.data.getDrawerRect();
+// rect = { width: 380, height: 675 }  或 null（抽屉未打开）
+```
+
+> 用于在抽屉中布局需要精确尺寸的内容（如拼图、Canvas）。配合 `drawerOpenEnd` 事件使用：在抽屉打开动画结束后再读取，确保布局基于最终尺寸。不要在 `drawerStateChange` 的 `mounted: true` 时读取——此时抽屉仍处于滑入/缩放动画中，直接量 DOM 会拿到缩放过程中的值。
 
 **getLabsData() 说明：**
 
@@ -329,6 +342,12 @@ context.commands.execute('goToPage', 4);
 
 // 查词释义
 context.commands.execute('lookup_word', 'apple');
+
+// 播放 Read to Me（宿主原生朗读）
+context.commands.execute('rtmPlay');
+
+// 暂停 Read to Me
+context.commands.execute('rtmPause');
 ```
 
 **openDrawer 说明：**
@@ -385,6 +404,23 @@ context.commands.execute('lookup_word', 'apple');
 
 > 适用场景：扩展中的文本内容包含生词时，允许用户点击查看释义。如果传入空字符串或未传参数，命令不会执行任何操作。
 
+**rtmPlay / rtmPause 说明：**
+
+控制宿主原生 Read to Me 的播放/暂停。典型场景：互动开始时暂停 RTM、互动结束后恢复。
+
+```javascript
+// 互动开始：先记下是否在播，再暂停
+var wasPlaying = context.data.getRtmPlaying();
+if (wasPlaying) context.commands.execute('rtmPause');
+
+// ... 互动进行 ...
+
+// 互动结束：仅在之前在播时才恢复，避免误启动
+if (wasPlaying) context.commands.execute('rtmPlay');
+```
+
+> 注意：控制的是**宿主原生 RTM**。若扩展已通过 `context.delegations.takeOver('rtm-playback', ...)` 接管 RTM 按钮（扩展自实现朗读音频），不要再使用这两个命令，避免与扩展自身音频冲突。无书 / 页面隐藏 / 未启用 RTM 时 `rtmPlay` 会安全 no-op。配合 `context.data.getRtmPlaying()` 读取当前播放状态。
+
 ### 4.6 context.events — 事件监听
 
 ```javascript
@@ -405,12 +441,39 @@ unsubscribe();
 |--------|---------|---------|---------|
 | `pageChange` | `{ pageIndex: number, source: PageChangeSource, direction: 1 \| -1 \| 0 }` | 翻页完成 | 更新互动内容 |
 | `pageTurnStart` | 无 | 翻页动画开始 | 立即清除当前页 UI |
+| `flipBookRectChange` | `{ rect: { x, y, width, height } \| null }` | 窗口 resize 后（防抖）书页位置/尺寸变化 | 重新定位 reading-area 互动元素 |
 | `drawerStateChange` | `{ mounted: boolean }` | 抽屉打开/关闭 | `mounted: true` 时渲染抽屉内容 |
+| `drawerOpenEnd` | `{ drawerRect: { width, height } }` | 抽屉滑入动画结束 | 读取尺寸、布局需要精确尺寸的内容（如拼图） |
 | `modalStateChange` | `{ mounted: boolean }` | 弹窗打开/关闭 | `mounted: true` 时渲染弹窗内容 |
 | `rtmVolumeChange` | `number` | 用户调整音量滑块 | 更新 `audio.volume` |
 | `rtmSpeedChange` | `number` | 用户切换播放速度 | 更新 `audio.playbackRate` |
 | `rtmHighlightChange` | `boolean` | 用户切换单词高亮开关 | 启用/停止高亮逻辑 |
 | `wordDefinitionClose` | 无 | 查词释义弹窗关闭 | 恢复音频播放等 |
+
+**抽屉生命周期说明：**
+
+抽屉的创建/销毁与动画完成分别由两个事件覆盖：
+
+| 事件 | 阶段 | 触发时机 |
+|------|------|---------|
+| `drawerStateChange` (`mounted: true`) | 创建 | 抽屉已挂载，**即将开始**滑入动画 |
+| `drawerOpenEnd` | 动画完成 | 滑入动画**结束后**触发，抽屉已静止，可安全测量尺寸 |
+| `drawerStateChange` (`mounted: false`) | 销毁 | 抽屉滑出动画**结束后**销毁 |
+
+> 需要基于抽屉最终尺寸布局内容（如拼图）时，监听 `drawerOpenEnd`，在其回调中读取 `context.data.getDrawerRect()`（或直接用 payload 里的 `drawerRect`）。不要在 `mounted: true` 时测量——此时抽屉仍处于滑入/缩放动画中。
+
+**`flipBookRectChange` 说明：**
+
+窗口 resize 时（防抖后）触发，payload 带新的书页位置/尺寸 `rect`（与 `context.data.getFlipBookRect()` 返回值同结构）。reading-area 上的互动元素若按书页坐标定位，resize 后会错位，监听此事件重新定位即可。
+
+```javascript
+var unsubRect = context.events.on('flipBookRectChange', function(payload) {
+  var rect = payload.rect; // { x, y, width, height } | null
+  // 用 rect 重新定位 reading-area 上的星星等元素
+});
+```
+
+> 翻页不需要监听此事件——`pageChange` 已触发，在 `pageChange` 回调里重读 `getFlipBookRect()` 即可。此事件仅覆盖窗口 resize。
 
 **`pageChange` payload 字段说明：**
 
@@ -534,6 +597,35 @@ activate: function(context) {
   };
 }
 ```
+
+### 4.8 context.globalState — 状态持久化
+
+保存扩展状态，用户下次打开同一本书时可恢复（如星星互动的收集记录、小游戏进度、上次浏览位置等）。
+
+| 方法 | 返回值 | 说明 |
+|------|--------|------|
+| `save(data)` | `Promise<void>` | 保存状态对象 |
+| `load()` | `Promise<object \| null>` | 读取上次保存的状态；无记录时返回 `null` |
+
+```javascript
+// 在 activate 时读取上次状态，有则恢复
+var saved = await context.globalState.load()
+if (saved) {
+  restoreState(saved)  // 从上次状态继续
+}
+
+// 在关键节点保存（如收集到星星、完成一关、切换设置）
+await context.globalState.save({
+  collectedStars: [1, 3, 5],
+  level: 2,
+  muted: true
+})
+```
+
+> - `data` 格式由第三方自定义（任意可序列化为 JSON 的对象），宿主只负责透传存取，**不解析内容**。
+> - 认证由宿主内部处理，第三方无需关心用户身份。
+> - 依赖后台 `extensionConfig.appKey`：书在后台配置了 `appKey` 才会真正持久化；未配置（如本地调试、未上线的书）时 `save` 静默不持久化、`load` 返回 `null`，不会报错。
+> - 状态按书（`bookId`）隔离，仅在同一本书再次打开时恢复。
 
 ---
 

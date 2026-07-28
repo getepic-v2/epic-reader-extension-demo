@@ -1,7 +1,7 @@
 # Epic Reader Extension Developer Guide
 
-> Version: 1.1.0  
-> Last Updated: 2026-06-12
+> Version: 1.2.0  
+> Last Updated: 2026-07-16
 
 > **New partner?** Please read the [Onboarding Guide](./Onboarding_Guide.md) first to request your repository, API credentials, and test account.
 
@@ -533,6 +533,35 @@ activate: function(context) {
   };
 }
 ```
+
+### 4.8 context.globalState — State Persistence
+
+Persist extension state so it can be restored when the user reopens the same book (e.g., star-interaction collection progress, mini-game state, last viewed position).
+
+| Method | Returns | Description |
+|------|--------|------|
+| `save(data)` | `Promise<void>` | Save the state object |
+| `load()` | `Promise<object \| null>` | Read the previously saved state; returns `null` when nothing is stored |
+
+```javascript
+// Read previous state on activate; restore if present
+var saved = await context.globalState.load()
+if (saved) {
+  restoreState(saved)  // resume from previous state
+}
+
+// Save at meaningful points (e.g., star collected, level cleared, setting toggled)
+await context.globalState.save({
+  collectedStars: [1, 3, 5],
+  level: 2,
+  muted: true
+})
+```
+
+> - The `data` format is partner-defined (any JSON-serializable object); the host stores it opaquely and **does not parse the content**.
+> - Authentication is handled internally by the host; the extension does not need to manage user identity.
+> - Requires a backend-configured `extensionConfig.appKey`: state is actually persisted only when the book has an `appKey` configured. Without it (e.g., local debugging, unlaunched books), `save` silently no-ops and `load` returns `null` — no error is thrown.
+> - State is scoped per book (`bookId`); it is restored only when the same book is reopened.
 
 ---
 
