@@ -1,7 +1,7 @@
 # Epic Reader Extension 第三方开发文档
 
-> 版本：1.1.0  
-> 更新日期：2026-06-12
+> 版本：1.2.0  
+> 更新日期：2026-07-06
 
 > **首次合作？** 请先阅读[合作入驻指南](./合作入驻指南.md)，完成仓库、API 凭证、测试账号等申请。
 
@@ -210,6 +210,7 @@ root.appendChild(style);
 |------|--------|------|
 | `getBookId()` | `number \| undefined` | 当前书籍 ID |
 | `getBookData()` | `object` | 完整的书籍对象（见下方字段说明） |
+| `getBookCoverUrl()` | `string` | 当前书籍封面图 CDN 地址（无书时为空字符串，见下方说明） |
 | `getCurrentPage()` | `number` | 当前页码（从 0 开始） |
 | `getLabsData()` | `string \| null` | 书籍绑定的互动数据（原始格式，由第三方自行解析） |
 | `getFlipBookRect()` | `object \| null` | 书页在屏幕上的精确位置和尺寸 |
@@ -235,6 +236,17 @@ root.appendChild(style);
 | `bookDescription` | `string` | 书籍简介 |
 
 > 以上为常用字段，实际对象包含更多属性。建议通过 `console.log(context.data.getBookData())` 查看完整结构。
+
+**getBookCoverUrl() 说明：**
+
+返回当前书籍封面图的 CDN 地址（绝对路径、未签名），与宿主书架、书籍封面页展示的封面一致，可直接用于 `<img src>` 或封面预加载。当前无书时返回空字符串 `''`。
+
+```javascript
+var coverUrl = context.data.getBookCoverUrl();
+// 例如：https://cdn-gcp-media.getepic.com/drm/3/1234563/cover.jpg
+```
+
+> 开发环境 CDN 域名不同（如 `content.getepic.dev`），请勿在扩展内硬编码域名，统一通过本方法获取。
 
 **getFlipBookRect() 返回值：**
 
@@ -534,6 +546,57 @@ activate: function(context) {
   };
 }
 ```
+
+### 4.8 context.globalState — 数据持久化
+
+允许扩展存取"用户的选择/状态"（收集的星星、答题记录、互动进度等），切书或重进后可恢复。数据按 **用户 + 书籍** 维度存储，跨会话持久化。与 Interactive Book 的 `context.progress` 共用同一后端，`save`/`load` 接口一致。
+
+| 方法 | 返回值 | 说明 |
+|------|--------|------|
+| `save(data)` | `Promise<void>` | 保存当前状态，下次打开书时可恢复 |
+| `load()` | `Promise<object \| null>` | 读取上次保存的状态，无数据时返回 `null` |
+
+```javascript
+// activate 时读取上次状态
+var saved = await context.globalState.load()
+if (saved) {
+  resumeFrom(saved)  // 从上次状态继续
+}
+
+// 关键节点保存（收集到星星、答完题等时机）
+await context.globalState.save({ collectedStars: [1, 3], score: 120 })
+```
+
+**说明：**
+
+- `data` 参数格式由第三方自定义，宿主只负责透传和存取，**不解析内容**。
+- 存储按 `appKey`（书籍 `extensionConfig.appKey`，入驻时分配）+ `bookId` 隔离，不同书、不同合作伙伴互不干扰。
+- 认证由宿主内部处理，第三方无需关心用户身份。
+- **未配置 `appKey` 时（如本地 debug 启动、未配置的测试书）**，`save`/`load` 优雅 no-op（`load` 返回 `null`），不会报错。
+
+> 与 Interactive Book 的 `context.progress` 不同：Reader Extension 是页式书，书的完成由宿主 `book-finish` 流程处理，因此 `globalState` 只提供 `save`/`load`，不包含 `checkpoint`/`complete`。
+
+### 4.9 context.user — 用户信息（只读）
+
+向扩展暴露当前用户的少量信息（只读）。本期只暴露一个字段：当前用户是否为家长。
+
+| 方法 | 返回值 | 说明 |
+|------|--------|------|
+| `isParent()` | `boolean` | 当前用户是否为家长（parent）profile |
+
+```javascript
+if (context.user.isParent()) {
+  // 家长账号：展示家长专属内容 / 解锁需家长协助的入口
+} else {
+  // 儿童账号
+}
+```
+
+**说明：**
+
+- 只读接口，扩展不能修改用户信息。
+- 本期只暴露 `isParent()`；其他用户字段（id、年龄段、语言、region 等）暂不暴露，后续按需逐字段评估（涉及隐私/COPPA 审查）。
+- 认证由宿主内部处理，第三方无需关心用户身份。
 
 ---
 
