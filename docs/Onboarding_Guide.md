@@ -1,6 +1,11 @@
-# Epic Reader Extension — Partner Onboarding Guide
+# Epic Third-Party Extensions — Partner Onboarding Guide
 
 > This guide walks third-party teams through the onboarding process before starting extension development.
+>
+> It applies to both types of extension partnership — the onboarding process is identical:
+>
+> - **Reader Extension** — adds interactive layers on top of regular flip-book pages (Full Takeover Mode also available)
+> - **Interactive Book** — a fully extension-driven interactive book experience (games, puzzles, interactive storytelling, etc.) with no page-flip concept
 
 ---
 
@@ -28,7 +33,8 @@ Send an email or Slack message to your Epic contact (lihaitao6@getepic.com) with
 | GitHub Usernames | GitHub accounts that need fork access | `@alice`, `@bob` |
 | Technical Contact | Primary developer for technical communication | alice@acme.com |
 | Target Books | Book IDs you need access to (if known) | 49524, 49528 |
-| Rendering Mode | Whether you need Full Takeover Mode (reader skips rendering original page images; extension renders all page content and interactions). See [Developer Guide - Full Takeover Mode](./Epic_Reader_Extension_Developer_Guide.md#9-full-takeover-mode-custom-page-content) | Yes / No |
+| Extension Type | **Reader Extension** (interactive layers on flip-book pages) or **Interactive Book** (fully extension-driven interactive book) | Interactive Book |
+| Rendering Mode (Reader Extension only) | Whether you need Full Takeover Mode (reader skips rendering original page images; extension renders all page content and interactions). See [Developer Guide - Full Takeover Mode](./Epic_Reader_Extension_Developer_Guide.md#9-full-takeover-mode-custom-page-content). Interactive Books are full-takeover by nature — skip this field | Yes / No |
 
 ---
 
@@ -59,7 +65,7 @@ Once your request is approved, we will provide:
 
 - URL: `https://webqa-new.getepic.dev`
 - A dedicated account with book subscription access for development and testing
-- See the [Developer Guide](./Epic_Reader_Extension_Developer_Guide.md) for the debug workflow
+- See the developer guide for your extension type for the debug workflow: [Reader Extension](./Epic_Reader_Extension_Developer_Guide.md) / [Interactive Book](./Epic_Interactive_Book_Extension_Developer_Guide.md)
 
 ### 3.5 Slack Channel
 
@@ -92,9 +98,23 @@ Once your request is approved, we will provide:
 
 ## 5. Resources
 
+**Common**
+
+| Resource | Link |
+|----------|------|
+| Open API Documentation | [open-api-book.md](./open-api-book.md) |
+
+**Reader Extension**
+
 | Resource | Link |
 |----------|------|
 | Developer Guide (English) | [Epic_Reader_Extension_Developer_Guide.md](./Epic_Reader_Extension_Developer_Guide.md) |
 | Developer Guide (Chinese) | [Epic_Reader_Extension_开发文档.md](./Epic_Reader_Extension_开发文档.md) |
-| Open API Documentation | [open-api-book.md](./open-api-book.md) |
 | Star Interaction Example | [Epic_Reader_Extension_Star_Interaction_Example.md](./Epic_Reader_Extension_Star_Interaction_Example.md) |
+
+**Interactive Book**
+
+| Resource | Link |
+|----------|------|
+| Developer Guide (English) | [Epic_Interactive_Book_Extension_Developer_Guide.md](./Epic_Interactive_Book_Extension_Developer_Guide.md) |
+| Developer Guide (Chinese) | [Epic_Interactive_Book_Extension_开发文档.md](./Epic_Interactive_Book_Extension_开发文档.md) |
